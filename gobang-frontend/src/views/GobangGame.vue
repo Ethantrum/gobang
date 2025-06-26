@@ -5,7 +5,7 @@
         <span>房间号: <b>{{ roomId }}</b></span>
         <span>你的身份: <b :class="myPieceClass">{{ myPieceText }}</b></span>
         <span>当前用户: {{ user.nickname }}</span>
-        <button class="exit-btn" @click="handleLeaveRoom" :disabled="leaveLoading">{{ leaveLoading ? '退出中...' : '退出房间' }}</button>
+        <button class="exit-btn" @click="onLeaveClick" :disabled="leaveLoading">{{ leaveLoading ? '退出中...' : '退出房间' }}</button>
       </header>
   
       <!-- 棋盘与回合提示区 -->
@@ -46,6 +46,16 @@
         </div>
       </div>
       <div v-if="waitingRestart" class="restart-waiting">已请求再来一局，等待对方同意…（{{ waitingRestartCountdown }} 秒）</div>
+      <!-- 退出房间二次确认弹窗 -->
+      <div v-if="showLeaveConfirm" class="restart-dialog-mask">
+        <div class="restart-dialog">
+          <div class="restart-title">确定要退出房间吗？</div>
+          <div class="restart-actions">
+            <button @click="confirmLeaveRoom" :disabled="leaveLoading">确定</button>
+            <button @click="showLeaveConfirm = false" :disabled="leaveLoading">取消</button>
+          </div>
+        </div>
+      </div>
     </div>
   </template>
   
@@ -91,6 +101,7 @@
       const waitingRestartCountdown = ref(10)
       let waitingRestartTimer = null
       let waitingRestartInterval = null
+      const showLeaveConfirm = ref(false)
   
       // 棋子身份文本与样式
       const myPieceText = computed(() => {
@@ -167,7 +178,11 @@
       }
   
       // 退出房间逻辑
-      const handleLeaveRoom = async () => {
+      const onLeaveClick = () => {
+        showLeaveConfirm.value = true
+      }
+      const confirmLeaveRoom = async () => {
+        showLeaveConfirm.value = false
         leaveLoading.value = true
         try {
           const res = await leaveRoom(roomId.value)
@@ -453,7 +468,7 @@
         }
         // 自动离开房间
         setTimeout(() => {
-          handleLeaveRoom()
+          confirmLeaveRoom()
         }, 500)
       }
   
@@ -490,7 +505,7 @@
       return {
         boardData, currentPlayer, placePiece, winner, players,
         sendUndo, sendRestart, sendLeave, roomId, user, roomInfo,
-        handleLeaveRoom, lastOptimisticMove, myPieceText, myPieceClass, isMyTurn, winnerText, toastMsg,
+        lastOptimisticMove, myPieceText, myPieceClass, isMyTurn, winnerText, toastMsg,
         leaveLoading, restartLoading,
         showRestartDialog,
         agreeRestart,
@@ -502,7 +517,10 @@
         isWinningPiece,
         isWatcher,
         waitingRestartCountdown,
-        playerCount
+        playerCount,
+        showLeaveConfirm,
+        onLeaveClick,
+        confirmLeaveRoom
       }
     }
   }
