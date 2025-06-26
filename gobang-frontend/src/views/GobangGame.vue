@@ -30,7 +30,7 @@
         <!-- 胜负横幅与再来一局 -->
         <div v-if="winner" class="result-banner">
           <span>{{ winnerText }}</span>
-          <button v-if="!isWatcher" @click="sendRestart" :disabled="restartLoading">{{ restartLoading ? '重开中...' : '再来一局' }}</button>
+          <button v-if="!isWatcher" class="restart-btn" @click="sendRestart" :disabled="restartLoading">{{ restartLoading ? '重开中...' : '再来一局' }}</button>
         </div>
       </main>
       <!-- Toast提示挂载点 -->
@@ -572,6 +572,7 @@
     cursor: pointer;
     font-size: 16px;
     transition: background 0.2s;
+    font-weight: bold;
   }
   .exit-btn:hover {
     background: #d9534f;
@@ -685,18 +686,19 @@
     box-shadow: 0 2px 8px rgba(45,140,240,0.08);
   }
   .restart-btn {
-    padding: 8px 20px;
-    font-size: 16px;
-    background-color: #4CAF50;
-    color: white;
+    background: #4CAF50;
+    color: #fff;
     border: none;
     border-radius: 6px;
+    padding: 8px 20px;
     cursor: pointer;
-    font-weight: bold;
+    font-size: 16px;
     transition: background 0.2s;
+    font-weight: bold;
+    margin-left: 18px;
   }
   .restart-btn:hover {
-    background-color: #45a049;
+    background: #388e3c;
   }
   .toast-message {
     position: fixed;
