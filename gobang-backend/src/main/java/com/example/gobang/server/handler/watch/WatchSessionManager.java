@@ -53,9 +53,13 @@ public class WatchSessionManager {
      * 向指定房间的所有观战者会话广播消息
      */
     public synchronized void broadcastToRoom(Long roomId, Object message) {
+        ConcurrentHashMap<Long, Set<WebSocketSession>> userSessions = roomWatchSessionsMap.get(roomId);
+        if (userSessions == null) {
+            return; // 没有观战者，直接返回
+        }
         String messageJson = JSON.toJSONString(message);
         TextMessage textMessage = new TextMessage(messageJson);
-        roomWatchSessionsMap.get(roomId).values().stream()
+        userSessions.values().stream()
                 .flatMap(Set::stream)
                 .filter(WebSocketSession::isOpen)
                 .forEach(session -> {

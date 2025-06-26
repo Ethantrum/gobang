@@ -9,6 +9,7 @@ import com.example.gobang.server.handler.WSMessageHandler;
 import com.example.gobang.server.handler.WebSocketMessageHandler;
 import com.example.gobang.server.mapper.GameRecordMapper;
 import com.example.gobang.server.mapper.GameMovesMapper;
+import com.example.gobang.server.handler.watch.WatchSessionManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketSession;
@@ -24,6 +25,8 @@ public class UndoHandler implements WebSocketMessageHandler {
     private GameRecordMapper gameRecordMapper;
     @Autowired
     private GameMovesMapper gameMovesMapper;
+    @Autowired
+    private WatchSessionManager watchSessionManager;
 
     @WSMessageHandler("undo")
     public void handleUndo(WebSocketSession session, JSONObject data) {
@@ -66,6 +69,7 @@ public class UndoHandler implements WebSocketMessageHandler {
         JSONObject resp = new JSONObject();
         resp.put("board", board);
         playerSessionManager.broadcastToRoom(roomId, WSResult.undo(resp));
+        watchSessionManager.broadcastToRoom(roomId, WSResult.undo(resp));
     }
 
     private int[][] buildBoardFromMoves(List<GameMoves> moves) {

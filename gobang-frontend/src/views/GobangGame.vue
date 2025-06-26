@@ -10,9 +10,9 @@
   
       <!-- 棋盘与回合提示区 -->
       <main class="board-section">
-        <div v-if="isWatcher" class="watcher-banner">观战中：您当前仅可观战，无法操作棋盘</div>
+        <div v-if="isWatcher" class="watcher-banner watcher-indicator">观战中：您当前仅可观战，无法操作棋盘</div>
         <div class="turn-indicator" :class="{ active: isMyTurn && players.length === 2 && !winner }">
-          {{ indicatorText }}
+          <template v-if="!isWatcher">{{ indicatorText }}</template>
         </div>
         <div class="board">
           <div v-for="(row, rowIndex) in 15" :key="rowIndex" class="row">
@@ -83,7 +83,7 @@
       const waitingRestart = ref(false)
       const restartCountdown = ref(10)
       const isWatcher = ref(false)
-      const routeRole = ref(route.params.role || '')
+      const routeRole = ref(route.query.role || route.params.role || '')
       let restartTimer = null
       let restartInterval = null
       let restartFromUserId = null
@@ -365,13 +365,20 @@
         onMessage: onWSMessage
       })
   
-      // 发送加入房间
+      // 发送加入房间/观战
       const sendJoin = () => {
         if (socket.value) {
-          sendWs(socket, JSON.stringify({
-            type: 'join',
-            data: { userId: userId.value, username: user.nickname, roomId: roomId.value }
-          }))
+          if (routeRole.value === 'watch') {
+            sendWs(socket, JSON.stringify({
+              type: 'watchJoin',
+              data: { userId: userId.value, username: user.nickname, roomId: roomId.value }
+            }))
+          } else {
+            sendWs(socket, JSON.stringify({
+              type: 'join',
+              data: { userId: userId.value, username: user.nickname, roomId: roomId.value }
+            }))
+          }
         }
       }
   
@@ -773,14 +780,15 @@
     box-shadow: 0 0 12px 4px #ffeb3b;
     border: 2px solid #fff;
   }
-  .watcher-banner {
-    color: #e53935;
-    background: #fff3e0;
-    padding: 6px 0;
-    text-align: center;
+  .watcher-banner.watcher-indicator {
+    color: #f56c6c;
+    background: #fff0f0;
+    border: 1px solid #f56c6c;
+    border-radius: 6px;
+    padding: 8px 0;
+    margin-bottom: 10px;
     font-weight: bold;
-    font-size: 16px;
-    margin-bottom: 8px;
-    border-radius: 4px;
+    text-align: center;
+    font-size: 18px;
   }
   </style> 

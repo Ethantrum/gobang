@@ -7,6 +7,7 @@ import com.example.gobang.common.result.WSResult;
 import com.example.gobang.pojo.entity.*;
 import com.example.gobang.server.handler.WSMessageHandler;
 import com.example.gobang.server.handler.WebSocketMessageHandler;
+import com.example.gobang.server.handler.watch.WatchSessionManager;
 import com.example.gobang.server.mapper.GameRecordMapper;
 import com.example.gobang.server.mapper.GameMovesMapper;
 import com.example.gobang.server.mapper.RoomMapper;
@@ -29,6 +30,8 @@ public class MoveHandler implements WebSocketMessageHandler {
     private GameRecordMapper gameRecordMapper;
     @Autowired
     private GameMovesMapper gameMovesMapper;
+    @Autowired
+    private WatchSessionManager watchSessionManager;
 
     @WSMessageHandler("move")
     public void handleMove(WebSocketSession session, JSONObject data) throws IOException {
@@ -85,12 +88,14 @@ public class MoveHandler implements WebSocketMessageHandler {
             resultData.put("board", board);
             resultData.put("winningLine", winResult.getWinningLine());
             playerSessionManager.broadcastToRoom(roomId, WSResult.result(resultData));
+            watchSessionManager.broadcastToRoom(roomId, WSResult.result(resultData));
             return;
         }
         JSONObject resp = new JSONObject();
         resp.put("board", board);
         resp.put("nextPlayer", player == 1 ? 2 : 1);
         playerSessionManager.broadcastToRoom(roomId, WSResult.move(resp));
+        watchSessionManager.broadcastToRoom(roomId, WSResult.move(resp));
     }
 
     private WinResult checkWin(int[][] board, int x, int y, int player) {

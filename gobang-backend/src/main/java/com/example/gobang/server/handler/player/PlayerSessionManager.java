@@ -164,7 +164,7 @@ public class PlayerSessionManager {
     }
 
     /**
-     * 向指定房间的所有玩家会话广播消息
+     * 向指定房间的所有玩家会话广播消息（不再自动推送给观战者）
      */
     public synchronized void broadcastToRoom(Long roomId, Object message) {
         String messageJson = JSON.toJSONString(message);
@@ -177,8 +177,7 @@ public class PlayerSessionManager {
                         session.sendMessage(textMessage);
                     } catch (IOException ignored) {}
                 });
-        // 回滚：不再强制推送给观战者，防止空指针
-        // 如需观战推送，请在业务层显式判断观战session是否存在再推送
+        // 不再自动推送给观战者，观战推送请在业务层显式调用
     }
 
     /**

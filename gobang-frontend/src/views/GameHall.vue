@@ -225,8 +225,8 @@ export default {
       try {
         const res = await roomWatch(roomId)
         if (res.code === 0) {
-          // 跳转到五子棋页面，传递房间ID和身份类型
-          router.push({ name: 'Gobang', params: { roomId, role: 'watch' } })
+          // 跳转到五子棋页面，传递房间ID和身份类型（用query）
+          router.push({ name: 'Gobang', params: { roomId }, query: { role: 'watch' } })
         } else {
           showToast(res.msg || '观战失败')
         }
