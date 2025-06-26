@@ -11,7 +11,7 @@
       <!-- 棋盘与回合提示区 -->
       <main class="board-section">
         <div v-if="isWatcher" class="watcher-banner watcher-indicator">观战中：您当前仅可观战，无法操作棋盘</div>
-        <div class="turn-indicator" :class="{ active: isMyTurn && players.length === 2 && !winner }">
+        <div class="turn-indicator" :class="{ active: isMyTurn && playerCount === 2 && !winner }">
           <template v-if="!isWatcher">{{ indicatorText }}</template>
         </div>
         <div class="board">
@@ -117,6 +117,8 @@
         if (me.isWhite && currentPlayer.value === 2) return true
         return false
       })
+      // 非观战玩家数量
+      const playerCount = computed(() => players.value.filter(p => !p.isWatcher).length)
       // 胜负横幅文本
       const winnerText = computed(() => {
         if (!winner.value) return ''
@@ -272,6 +274,7 @@
             case 'restart_request':
               showRestartDialog.value = true
               restartResponding.value = false
+              restartFromUserId = msg.data.fromUserId
               restartCountdown.value = 10
               if (restartTimer) clearTimeout(restartTimer)
               if (restartInterval) clearInterval(restartInterval)
@@ -329,13 +332,7 @@
               if (msg.data === true) {
                 showToast('对方同意再来一局，正在开始新对局…')
                 waitingRestart.value = false
-                // 新增：发起方收到同意后自动发送restart
-                if (!showRestartDialog.value) {
-                  // 只有发起方waitingRestart为true，防止双方都发
-                  if (socket.value) {
-                    sendWs(socket, JSON.stringify({ type: 'restart', data: { roomId: roomId.value } }))
-                  }
-                }
+                // 不再自动发restart，由后端统一推送start
               } else {
                 showToast('对方拒绝了再来一局请求')
                 waitingRestart.value = false
@@ -428,7 +425,7 @@
             waitingRestart.value = false
             waitingRestartCountdown.value = 10
           }, 10000)
-          sendWs(socket, JSON.stringify({ type: 'restart_request', data: { roomId: roomId.value } }))
+          sendWs(socket, JSON.stringify({ type: 'restart_request', data: { roomId: roomId.value, userId: user.userId } }))
         }
       }
   
@@ -504,7 +501,8 @@
         indicatorText,
         isWinningPiece,
         isWatcher,
-        waitingRestartCountdown
+        waitingRestartCountdown,
+        playerCount
       }
     }
   }
