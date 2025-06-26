@@ -25,6 +25,3 @@ yarn-error.log*
 # Backend (gobang-backend)
 gobang-backend/target/
 gobang-backend/logs/ 
-
-# Documents
-前端优化建议.md 

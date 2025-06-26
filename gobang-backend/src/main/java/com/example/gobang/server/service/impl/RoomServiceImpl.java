@@ -8,11 +8,18 @@ import com.example.gobang.pojo.dto.room.RoomLeaveDTO;
 import com.example.gobang.pojo.entity.Room;
 import com.example.gobang.pojo.entity.RoomUser;
 import com.example.gobang.pojo.entity.User;
+import com.example.gobang.pojo.entity.GameRecord;
+import com.example.gobang.pojo.entity.GameMoves;
 import com.example.gobang.pojo.vo.room.RoomCurrentRoomVO;
 import com.example.gobang.pojo.vo.room.RoomListVO;
 import com.example.gobang.server.mapper.RoomMapper;
 import com.example.gobang.server.mapper.RoomUserMapper;
 import com.example.gobang.server.mapper.UserMapper;
+import com.example.gobang.server.mapper.GameRecordMapper;
+import com.example.gobang.server.mapper.GameMovesMapper;
+import com.example.gobang.server.handler.WSSessionManager;
+import com.example.gobang.common.result.WSResult;
+import com.alibaba.fastjson.JSONObject;
 import com.example.gobang.server.service.RoomService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -36,6 +43,12 @@ public class RoomServiceImpl implements RoomService {
     private RoomUserMapper roomUserMapper;
     @Autowired
     private UserMapper userMapper;
+    @Autowired
+    private GameRecordMapper gameRecordMapper;
+    @Autowired
+    private GameMovesMapper gameMovesMapper;
+    @Autowired
+    private WSSessionManager wsSessionManager;
 
     @Override
     public Result roomList(int pageNum, int pageSize) {
@@ -92,20 +105,23 @@ public class RoomServiceImpl implements RoomService {
     public Result roomJoin(Long roomId, Long userId) {
         //判断房间是否存在
         Room room = roomMapper.selectById(roomId);
-        ////判断用户是否已经在房间中
+        if (room == null) {
+            return Result.error("房间不存在");
+        }
+        //判断用户是否已经在房间中
         LambdaQueryWrapper<RoomUser> roomUserQueryWrapper = new LambdaQueryWrapper<>();
         roomUserQueryWrapper.eq(RoomUser::getRoomId, roomId);
         roomUserQueryWrapper.eq(RoomUser::getUserId, userId);
         RoomUser roomUser = roomUserMapper.selectOne(roomUserQueryWrapper);
         if(roomUser != null){
-            return Result.error("用户已经在房间中");
+            return Result.error("您已经在房间中");
         }
         //判断房间是否已满
         if (room.getStatus() == ROOM_STATUS_FULL) {
             return Result.error("房间已满");
         }
         if (room.getStatus() == ROOM_STATUS_END) {
-            return Result.error("房间已结束");
+            return Result.error("对局已结束");
         }
         //将用户加入房间
         RoomUser newRoomUser = RoomUser.builder()
@@ -114,6 +130,7 @@ public class RoomServiceImpl implements RoomService {
                .joinTime(LocalDateTime.now())
                .build();
         roomUserMapper.insert(newRoomUser);
+
         return Result.success("加入房间成功", room.getRoomId());
     }
 
@@ -136,49 +153,72 @@ public class RoomServiceImpl implements RoomService {
     @Transactional(rollbackFor = Exception.class)
     @Override
     public Result roomLeave(RoomLeaveDTO roomLeaveDTO) {
-        // 1. 判断用户是否在房间中
-        LambdaQueryWrapper<RoomUser> roomUserQueryWrapper = new LambdaQueryWrapper<>();
-        roomUserQueryWrapper.eq(RoomUser::getRoomId, roomLeaveDTO.getRoomId());
-        roomUserQueryWrapper.eq(RoomUser::getUserId, roomLeaveDTO.getUserId());
-        RoomUser roomUser = roomUserMapper.selectOne(roomUserQueryWrapper);
+        Long roomId = roomLeaveDTO.getRoomId();
+        Long userId = roomLeaveDTO.getUserId();
+
+        // 1. 验证用户和房间是否存在
+        RoomUser roomUser = roomUserMapper.selectOne(new LambdaQueryWrapper<RoomUser>()
+                .eq(RoomUser::getRoomId, roomId).eq(RoomUser::getUserId, userId));
         if (roomUser == null) {
-            // 幂等处理：用户本来就不在房间，直接返回成功
-            return Result.success("退出房间成功");
+            return Result.success("您已不在房间中");
         }
-
-        // 2. 判断房间是否存在
-        LambdaQueryWrapper<Room> roomQueryWrapper = new LambdaQueryWrapper<>();
-        roomQueryWrapper.eq(Room::getRoomId, roomLeaveDTO.getRoomId());
-        Room room = roomMapper.selectOne(roomQueryWrapper);
+        Room room = roomMapper.selectById(roomId);
         if (room == null) {
-            // 房间已不存在，直接返回成功
-            return Result.success("退出房间成功");
+            roomUserMapper.deleteById(roomUser); // 清理脏数据
+            return Result.success("房间已解散");
         }
 
-        // 3. 判断用户是否为房主
-        if (room.getOwnerId().equals(roomLeaveDTO.getUserId())) {
-            // 查询剩余成员（不含当前要退出的房主）
-            List<RoomUser> leftUsers = roomUserMapper.selectList(
-                new LambdaQueryWrapper<RoomUser>()
-                    .eq(RoomUser::getRoomId, room.getRoomId())
-                    .ne(RoomUser::getUserId, roomLeaveDTO.getUserId())
-                    .orderByAsc(RoomUser::getJoinTime)
-            );
-            if (!leftUsers.isEmpty()) {
-                // 选最早加入的成员为新房主
-                RoomUser newOwner = leftUsers.get(0);
-                room.setOwnerId(newOwner.getUserId());
-                roomMapper.updateById(room);
-            } else {
-                // 没人了，删除房间
-                roomMapper.deleteById(room.getRoomId());
+        // 2. 从房间中移除用户
+        roomUserMapper.deleteById(roomUser.getId());
+
+        // 3. 根据情况更新房间状态
+        List<RoomUser> remainingUsers = roomUserMapper.selectList(new LambdaQueryWrapper<RoomUser>()
+                .eq(RoomUser::getRoomId, roomId).orderByAsc(RoomUser::getJoinTime));
+
+        if (remainingUsers.isEmpty()) {
+            // 没人了，删除房间和所有相关对局
+            roomMapper.deleteById(roomId);
+            gameRecordMapper.delete(new LambdaQueryWrapper<GameRecord>().eq(GameRecord::getRoomId, roomId));
+        } else {
+            // 还有人
+            boolean wasGameInProgress = (room.getStatus() == 1);
+            if (wasGameInProgress) {
+                // 游戏进行中离开
+                Long winnerId = remainingUsers.get(0).getUserId();
+                GameRecord record = gameRecordMapper.selectOne(new LambdaQueryWrapper<GameRecord>()
+                        .eq(GameRecord::getRoomId, roomId).isNull(GameRecord::getEndTime));
+
+                if (record != null) {
+                    record.setWinner(winnerId);
+                    record.setEndTime(LocalDateTime.now());
+                    gameRecordMapper.updateById(record);
+
+                    // 核心修复：通过WebSocket广播结果
+                    List<GameMoves> allMoves = gameMovesMapper.selectList(new LambdaQueryWrapper<GameMoves>().eq(GameMoves::getGameId, record.getId()));
+                    int[][] board = buildBoardFromMoves(allMoves);
+                    JSONObject resultData = new JSONObject();
+                    resultData.put("winner", winnerId);
+                    resultData.put("board", board);
+                    wsSessionManager.broadcastToRoom(roomId, WSResult.result(resultData));
+                }
+                room.setStatus((byte) 0); // 房间状态重置为等待
             }
+            
+            // 检查并转让房主（仅在非游戏状态下或游戏结束后）
+            if (!wasGameInProgress && room.getOwnerId().equals(userId)) {
+                room.setOwnerId(remainingUsers.get(0).getUserId());
+            }
+            roomMapper.updateById(room);
         }
-
-        // 4. 非房主离开或房主已转让/删除
-        roomUserMapper.deleteById(roomUser);
-
         return Result.success("退出房间成功");
+    }
+
+    private int[][] buildBoardFromMoves(List<GameMoves> moves) {
+        int[][] board = new int[15][15];
+        for (GameMoves move : moves) {
+            board[move.getX()][move.getY()] = move.getPlayer();
+        }
+        return board;
     }
 
     @Override

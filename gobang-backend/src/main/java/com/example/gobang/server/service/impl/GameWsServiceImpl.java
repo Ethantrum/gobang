@@ -16,6 +16,8 @@ import org.springframework.web.socket.TextMessage;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.ArrayList;
+import java.awt.Point;
 import java.util.stream.Collectors;
 
 /**
@@ -184,7 +186,8 @@ public class GameWsServiceImpl implements WebSocketMessageHandler {
         int[][] board = buildBoardFromMoves(allMoves);
 
         // 胜利判断
-        if (checkWin(board, x, y, player)) {
+        WinResult winResult = checkWin(board, x, y, player);
+        if (winResult.isWin()) {
             // 更新对局和房间状态
             record.setEndTime(java.time.LocalDateTime.now());
             record.setWinner(userId);
@@ -192,14 +195,16 @@ public class GameWsServiceImpl implements WebSocketMessageHandler {
 
             Room room = roomMapper.selectById(roomId);
             if (room != null) {
-                room.setStatus((byte)2); // 2-已结束
+                // 游戏结束，房间状态回到等待中，以便可以再来一局或加入新玩家
+                room.setStatus((byte)0); // 0-等待中
                 roomMapper.updateById(room);
             }
             
-            // 广播胜利结果
+            // 广播胜利结果，并附带高亮坐标
             JSONObject resultData = new JSONObject();
             resultData.put("winner", userId);
             resultData.put("board", board);
+            resultData.put("winningLine", winResult.getWinningLine());
             wsSessionManager.broadcastToRoom(roomId, WSResult.result(resultData));
             return;
         }
@@ -316,109 +321,110 @@ public class GameWsServiceImpl implements WebSocketMessageHandler {
      */
     @WSMessageHandler("leave")
     public void handleLeave(WebSocketSession session, JSONObject data) {
-        System.out.println("[GameWsServiceImpl] handleLeave 被调用, data=" + data);
-        Long userId = (Long) session.getAttributes().get("userId");
         Long roomId = (Long) session.getAttributes().get("roomId");
+        Long userId = (Long) session.getAttributes().get("userId");
+        if (roomId == null || userId == null) return;
 
-        if (userId == null || roomId == null) {
-            // 无法获取用户信息，无法广播，直接返回
-            return;
-        }
+        User leavingUser = userMapper.selectById(userId);
+        String nickname = (leavingUser != null) ? leavingUser.getNickname() : "一位玩家";
 
-        // 先移除用户
-        roomUserMapper.delete(new QueryWrapper<RoomUser>()
-                .eq("room_id", roomId).eq("user_id", userId));
+        // 从数据库中移除 room_user 记录
+        roomUserMapper.delete(new QueryWrapper<RoomUser>().eq("room_id", roomId).eq("user_id", userId));
 
-        // 查询房间剩余用户
-        List<RoomUser> leftUsers = roomUserMapper.selectList(new QueryWrapper<RoomUser>().eq("room_id", roomId));
-        Room room = roomMapper.selectById(roomId);
-        // 如果房间为对局中且只剩一人，判定剩下玩家胜利
-        if (room != null && room.getStatus() == 1 && leftUsers.size() == 1) {
+        // 检查房间是否还有人
+        long memberCount = roomUserMapper.selectCount(new QueryWrapper<RoomUser>().eq("room_id", roomId));
+        if (memberCount == 0) {
+            // 没人了，删除房间
+            roomMapper.deleteById(roomId);
+        } else {
+            Room room = roomMapper.selectById(roomId);
             // 查找当前活跃对局
             GameRecord record = gameRecordMapper.selectOne(
-                new QueryWrapper<GameRecord>()
-                    .eq("room_id", roomId)
-                    .isNull("end_time")
-                    .orderByDesc("start_time")
-                    .last("limit 1")
+                    new QueryWrapper<GameRecord>().eq("room_id", roomId).isNull("end_time")
             );
+
             if (record != null) {
-                // 结束对局
+                // 如果对局正在进行中，则离开者判负
                 record.setEndTime(java.time.LocalDateTime.now());
+                Long winnerId = record.getBlackId().equals(userId) ? record.getWhiteId() : record.getBlackId();
+                record.setWinner(winnerId);
                 gameRecordMapper.updateById(record);
-                // 设置房间状态为等待（允许新玩家加入）
-                room.setStatus((byte)0);
-                roomMapper.updateById(room);
-                // 胜利者为剩下的玩家
-                Long winnerId = leftUsers.get(0).getUserId();
-                // 查询棋盘
-                List<GameMoves> allMoves = gameMovesMapper.selectList(
-                    new QueryWrapper<GameMoves>().eq("game_id", record.getId()));
-                int[][] board = buildBoardFromMoves(allMoves);
-                // 广播胜利结果
+
+                // 更新房间状态为等待中
+                if(room != null) {
+                    room.setStatus((byte) 0); // 0-等待中
+                    roomMapper.updateById(room);
+                }
+
+                // 广播游戏结果
                 JSONObject resultData = new JSONObject();
                 resultData.put("winner", winnerId);
-                resultData.put("board", board);
+                resultData.put("board", buildBoardFromMoves(gameMovesMapper.selectList(new QueryWrapper<GameMoves>().eq("game_id", record.getId()))));
                 wsSessionManager.broadcastToRoom(roomId, WSResult.result(resultData));
+            } else if (room != null && room.getOwnerId().equals(userId)) {
+                // 如果不是在对局中离开，且离开的是房主，则转让房主
+                List<RoomUser> remainingUsers = roomUserMapper.selectList(
+                        new QueryWrapper<RoomUser>().eq("room_id", roomId).orderByAsc("join_time"));
+                if (!remainingUsers.isEmpty()) {
+                    room.setOwnerId(remainingUsers.get(0).getUserId());
+                    roomMapper.updateById(room);
+                }
             }
+
+            // 广播离开消息
+            JSONObject leaveData = new JSONObject();
+            leaveData.put("userId", userId);
+            leaveData.put("nickname", nickname);
+            wsSessionManager.broadcastToRoom(roomId, WSResult.leave(leaveData));
         }
-        // 新增：如果房间为已结束且只剩一人，也重置为等待
-        if (room != null && room.getStatus() == 2 && leftUsers.size() == 1) {
-            room.setStatus((byte)0);
-            roomMapper.updateById(room);
-        }
-        // 如果房间没人了，删除房间
-        if (leftUsers.size() == 0) {
-            roomMapper.deleteById(roomId);
-        }
-        JSONObject resp = new JSONObject();
-        resp.put("msg", "用户 " + userId + " 已离开房间");
-        wsSessionManager.broadcastToRoom(roomId, WSResult.leave(resp));
+
+        // 清理 session，以防复用
+        session.getAttributes().remove("roomId");
+        session.getAttributes().remove("userId");
     }
 
     /**
      * 胜利逻辑判断
      */
-    private boolean checkWin(int[][] board, int x, int y, int player) {
-        int count = 1;
-        // 横向
-        for (int i = 1; i < 5; i++) {
-            if (y + i < 15 && board[x][y + i] == player) count++; else break;
-        }
-        for (int i = 1; i < 5; i++) {
-            if (y - i >= 0 && board[x][y - i] == player) count++; else break;
-        }
-        if (count >= 5) return true;
+    private WinResult checkWin(int[][] board, int x, int y, int player) {
+        final int[] dx = {1, 0, 1, 1};
+        final int[] dy = {0, 1, 1, -1};
 
-        // 纵向
-        count = 1;
-        for (int i = 1; i < 5; i++) {
-            if (x + i < 15 && board[x + i][y] == player) count++; else break;
-        }
-        for (int i = 1; i < 5; i++) {
-            if (x - i >= 0 && board[x - i][y] == player) count++; else break;
-        }
-        if (count >= 5) return true;
+        for (int i = 0; i < 4; i++) {
+            List<Point> line = new ArrayList<>();
+            line.add(new Point(x, y));
+            int count = 1;
 
-        // 右斜
-        count = 1;
-        for (int i = 1; i < 5; i++) {
-            if (x + i < 15 && y + i < 15 && board[x + i][y + i] == player) count++; else break;
-        }
-        for (int i = 1; i < 5; i++) {
-            if (x - i >= 0 && y - i >= 0 && board[x - i][y - i] == player) count++; else break;
-        }
-        if (count >= 5) return true;
+            // 正方向
+            for (int j = 1; j < 5; j++) {
+                int nx = x + j * dx[i];
+                int ny = y + j * dy[i];
+                if (nx >= 0 && nx < 15 && ny >= 0 && ny < 15 && board[nx][ny] == player) {
+                    count++;
+                    line.add(new Point(nx, ny));
+                } else {
+                    break;
+                }
+            }
 
-        // 左斜
-        count = 1;
-        for (int i = 1; i < 5; i++) {
-            if (x + i < 15 && y - i >= 0 && board[x + i][y - i] == player) count++; else break;
+            // 反方向
+            for (int j = 1; j < 5; j++) {
+                int nx = x - j * dx[i];
+                int ny = y - j * dy[i];
+                if (nx >= 0 && nx < 15 && ny >= 0 && ny < 15 && board[nx][ny] == player) {
+                    count++;
+                    line.add(new Point(nx, ny));
+                } else {
+                    break;
+                }
+            }
+
+            if (count >= 5) {
+                return new WinResult(true, line);
+            }
         }
-        for (int i = 1; i < 5; i++) {
-            if (x - i >= 0 && y + i < 15 && board[x - i][y + i] == player) count++; else break;
-        }
-        return count >= 5;
+
+        return new WinResult(false, null);
     }
 
     /**
@@ -443,9 +449,21 @@ public class GameWsServiceImpl implements WebSocketMessageHandler {
         Long roomId = (Long) session.getAttributes().get("roomId");
         Long userId = (Long) session.getAttributes().get("userId");
         if (roomId == null || userId == null) return;
-        // 找到房间内除自己外的用户
-        List<RoomUser> users = roomUserMapper.selectList(new QueryWrapper<RoomUser>().eq("room_id", roomId));
-        for (RoomUser u : users) {
+
+        // 核心修复：检查房间人数是否为2
+        long memberCount = roomUserMapper.selectCount(new QueryWrapper<RoomUser>().eq("room_id", roomId));
+        if (memberCount < 2) {
+            try {
+                session.sendMessage(new TextMessage(JSON.toJSONString(WSResult.error("对方已离开，无法开始新对局。"))));
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return;
+        }
+
+        // 向对方发送请求
+        List<User> users = userMapper.selectUsersByRoomId(roomId);
+        for (User u : users) {
             if (!u.getUserId().equals(userId)) {
                 wsSessionManager.sendToUser(u.getUserId(), WSResult.restart(JSON.parseObject("{" +
                         "\"fromUserId\":" + userId +
@@ -471,6 +489,27 @@ public class GameWsServiceImpl implements WebSocketMessageHandler {
             handleRestart(session, new JSONObject());
         } else {
             wsSessionManager.sendToUser(fromUserId, WSResult.error("对方拒绝再来一局，已自动离开房间"));
+        }
+    }
+
+    /**
+     * 新的内部类，用于返回胜利结果
+     */
+    private static class WinResult {
+        private final boolean isWin;
+        private final List<Point> winningLine;
+
+        public WinResult(boolean isWin, List<Point> winningLine) {
+            this.isWin = isWin;
+            this.winningLine = winningLine;
+        }
+
+        public boolean isWin() {
+            return isWin;
+        }
+
+        public List<Point> getWinningLine() {
+            return winningLine;
         }
     }
 } 

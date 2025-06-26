@@ -10,14 +10,18 @@
   
       <!-- 棋盘与回合提示区 -->
       <main class="board-section">
-        <div class="turn-indicator" :class="{ active: isMyTurn }">
-          {{ isMyTurn ? '轮到你下棋' : '等待对方落子' }}
+        <div class="turn-indicator" :class="{ active: isMyTurn && players.length === 2 && !winner }">
+          {{ indicatorText }}
         </div>
         <div class="board">
           <div v-for="(row, rowIndex) in 15" :key="rowIndex" class="row">
             <div v-for="(col, colIndex) in 15" :key="colIndex" class="cell" @click="placePiece(rowIndex, colIndex)">
               <div v-if="boardData[rowIndex][colIndex]"
-                   :class="[boardData[rowIndex][colIndex] === 1 ? 'black-piece' : 'white-piece', 'piece']">
+                   :class="[
+                       boardData[rowIndex][colIndex] === 1 ? 'black-piece' : 'white-piece',
+                       'piece',
+                       { 'highlight': isWinningPiece(rowIndex, colIndex) }
+                   ]">
               </div>
             </div>
           </div>
@@ -63,6 +67,7 @@
       const socket = ref(null)
       const wsStatus = ref('已断开')
       const winner = ref(null)
+      const winningLine = ref([])
       const players = ref([])
       const lastOptimisticMove = ref(null)
       const toastMsg = ref('')
@@ -106,9 +111,31 @@
       // 胜负横幅文本
       const winnerText = computed(() => {
         if (!winner.value) return ''
+        // 增加对当前用户ID的引用，确保响应性
+        const currentUserId = user.userId
+        
         const winPlayer = players.value.find(p => p.userId == winner.value)
-        if (!winPlayer) return '对局结束'
-        return `胜利者：${winPlayer.nickname}（${winPlayer.isBlack ? '黑棋' : '白棋'}）`
+        
+        if (winner.value == currentUserId) {
+          return '游戏结束，你获得胜利！'
+        }
+        
+        if (winPlayer) {
+          return `游戏结束，${winPlayer.nickname} 获得胜利！`
+        }
+
+        return '对局结束'
+      })
+  
+      // 核心修复：独立的上方状态提示
+      const indicatorText = computed(() => {
+        if (players.value.length < 2) {
+          return '等待玩家加入...'
+        }
+        if (winner.value) {
+            return '游戏结束'
+        }
+        return isMyTurn.value ? '轮到你下棋' : '等待对方落子'
       })
   
       // Toast 非阻塞提示
@@ -160,6 +187,7 @@
               boardData.value = Array(15).fill().map(() => Array(15).fill(0))
               winner.value = null
               currentPlayer.value = 1
+              winningLine.value = []
               // 优化提示：明确告知用户身份
               const me = msg.data.players.find(p => p.userId == user.userId)
               if (me) {
@@ -177,8 +205,22 @@
               break
             case 'result':
               winner.value = msg.data.winner
-              boardData.value = msg.data.board
+              if (msg.data.board) {
+                boardData.value = msg.data.board
+              }
+              if (msg.data.winningLine) {
+                winningLine.value = msg.data.winningLine
+              }
               showToast(winnerText.value)
+              
+              // 核心修复：游戏结束后，重置所有"再来一局"相关的状态
+              if (restartTimer) clearTimeout(restartTimer)
+              if (restartInterval) clearInterval(restartInterval)
+              showRestartDialog.value = false
+              waitingRestart.value = false
+              restartResponding.value = false
+              restartCountdown.value = 10
+              
               break
             case 'restart':
               showRestartDialog.value = true
@@ -205,7 +247,8 @@
               currentPlayer.value = msg.data.nextPlayer
               break
             case 'leave':
-              showToast('对方已离开房间')
+              showToast(`玩家 ${msg.data.nickname} 已离开房间`)
+              players.value = players.value.filter(p => p.userId !== msg.data.userId)
               break
             case 'error':
               // 处理后端主动推送的错误消息
@@ -271,6 +314,10 @@
   
       // 重开
       const sendRestart = async () => {
+        if (players.value.length < 2) {
+          showToast('对方已离开，无法开始新对局。')
+          return
+        }
         if (socket.value) {
           waitingRestart.value = true
           sendWs(socket, JSON.stringify({ type: 'restartRequest', data: { roomId: roomId.value } }))
@@ -308,6 +355,11 @@
         if (socket.value) sendWs(socket, JSON.stringify({ type: 'leave' }))
       }
   
+      // 新增：判断是否为高亮棋子
+      const isWinningPiece = (x, y) => {
+        return winningLine.value.some(p => p.x === x && p.y === y);
+      };
+  
       onMounted(async () => {
         // 先拉取用户信息
         try {
@@ -336,7 +388,9 @@
         rejectRestart,
         restartResponding,
         waitingRestart,
-        restartCountdown
+        restartCountdown,
+        indicatorText,
+        isWinningPiece
       }
     }
   }
@@ -489,17 +543,15 @@
         linear-gradient(to bottom, black, black) top / 1px 50% no-repeat;
   }
   .piece {
-    width: 26px;
-    height: 26px;
+    width: 90%;
+    height: 90%;
     border-radius: 50%;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.18);
-    margin: 2px;
-    transition: transform 0.15s, box-shadow 0.15s;
-    animation: popin 0.18s;
-  }
-  @keyframes popin {
-    0% { transform: scale(0.5); opacity: 0.5; }
-    100% { transform: scale(1); opacity: 1; }
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    box-sizing: border-box;
   }
   .black-piece {
     background: radial-gradient(circle at 30% 30%, #666, #000 80%);
@@ -609,5 +661,9 @@
     font-size: 18px;
     z-index: 2000;
     box-shadow: 0 2px 8px rgba(45,140,240,0.08);
+  }
+  .piece.highlight {
+    box-shadow: 0 0 12px 4px #ffeb3b;
+    border: 2px solid #fff;
   }
   </style> 
