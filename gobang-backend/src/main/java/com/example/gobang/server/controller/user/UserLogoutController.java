@@ -3,17 +3,13 @@ package com.example.gobang.server.controller.user;
 
 import com.example.gobang.common.JWT.JwtUtils;
 import com.example.gobang.common.result.Result;
-import com.example.gobang.server.service.UserService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 public class UserLogoutController {
-    @Autowired
-    private UserService userService;
 
     public Result logout(@RequestHeader("Authorization") String token) {
         try {

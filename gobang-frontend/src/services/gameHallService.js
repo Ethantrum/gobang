@@ -121,3 +121,16 @@ export function leaveRoom(roomId) {
     body: JSON.stringify({ userId, roomId })
   }).then(res => res.json())
 }
+
+export function roomWatch(roomId) {
+  const token = localStorage.getItem('token')
+  const userId = localStorage.getItem('userId')
+  return fetch(API_URLS.ROOM_WATCH, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': token ? 'Bearer ' + token : ''
+    },
+    body: JSON.stringify({ userId, roomId })
+  }).then(res => res.json())
+}

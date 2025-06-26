@@ -69,4 +69,25 @@ public class WSResult<T> implements Serializable {
         wsResult.data = object;
         return wsResult;
     }
+
+    public static WSResult<Void> restartRequest() {
+        WSResult<Void> wsResult = new WSResult<>();
+        wsResult.type = "restart_request";
+        wsResult.data = null;
+        return wsResult;
+    }
+
+    public static WSResult<Boolean> restartResponse(boolean agree) {
+        WSResult<Boolean> wsResult = new WSResult<>();
+        wsResult.type = "restart_response";
+        wsResult.data = agree;
+        return wsResult;
+    }
+
+    public static WSResult<String> master(String msg) {
+        WSResult<String> wsResult = new WSResult<>();
+        wsResult.type = "master";
+        wsResult.data = msg;
+        return wsResult;
+    }
 }

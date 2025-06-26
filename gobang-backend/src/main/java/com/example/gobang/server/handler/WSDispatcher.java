@@ -68,32 +68,18 @@ public class WSDispatcher {
      */
     public void dispatch(WebSocketSession session, WebSocketMessage<?> message) throws Exception {
         String payload = (String) message.getPayload();
-        System.out.println("解析消息: " + payload);
-
+        
         JSONObject jsonObject = JSON.parseObject(payload);
         String type = jsonObject.getString("type");
         JSONObject data = jsonObject.getJSONObject("data");
-        
-        System.out.println("消息类型: " + type + ", 数据: " + data);
         
         Method handlerMethod = handlerMap.get(type);
         Object handlerInstance = handlerInstanceMap.get(type);
 
         if (handlerMethod != null && handlerInstance != null) {
-            System.out.println("调用方法: " + handlerMethod.getName() + " 参数: " + data);
-            
-            // 检查方法的参数类型
-            Class<?>[] paramTypes = handlerMethod.getParameterTypes();
-            if (paramTypes.length == 2 &&
-                paramTypes[0].isAssignableFrom(WebSocketSession.class) &&
-                paramTypes[1].isAssignableFrom(JSONObject.class)) {
-                handlerMethod.invoke(handlerInstance, session, data);
-            } else {
-                 System.err.println("方法 " + handlerMethod.getName() + " 的签名不符合 (WebSocketSession, JSONObject) 要求");
-            }
-            
+            handlerMethod.invoke(handlerInstance, session, data);
         } else {
-            System.out.println("未找到类型为 '" + type + "' 的处理器");
+            // 未找到类型为 'type' 的处理器
         }
     }
 }

@@ -20,5 +20,6 @@ public class RoomUser implements Serializable{
     private Long id;
     private Long roomId;
     private Long userId;
+    private byte role;
     private LocalDateTime joinTime;
 }

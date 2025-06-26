@@ -34,9 +34,6 @@ public class WebSocketProxyFactory {
 
         @Override
         public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-            // 这里可以添加自定义处理逻辑，如日志记录、权限验证等
-            System.out.println("Handling method: " + method.getName());
-            
             // 调用实际的目标方法
             return method.invoke(target, args);
         }

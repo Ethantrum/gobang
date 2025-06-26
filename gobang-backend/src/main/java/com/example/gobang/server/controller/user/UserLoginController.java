@@ -2,7 +2,7 @@ package com.example.gobang.server.controller.user;
 
 import com.example.gobang.common.result.Result;
 import com.example.gobang.pojo.dto.user.UserLoginDTO;
-import com.example.gobang.server.service.UserService;
+import com.example.gobang.server.service.user.UserLoginService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -13,11 +13,10 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserLoginController {
 
     @Autowired
-    private UserService userService;
+    private UserLoginService userLoginService;
 
     @PostMapping("/api/user/login")
     public Result login(@Validated @RequestBody UserLoginDTO userLoginDTO){
-        System.out.println("登录请求");
-        return userService.login(userLoginDTO);
+        return userLoginService.login(userLoginDTO);
     }
 }

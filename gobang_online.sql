@@ -11,7 +11,7 @@
  Target Server Version : 80012 (8.0.12)
  File Encoding         : 65001
 
- Date: 26/06/2025 18:26:04
+ Date: 26/06/2025 23:35:09
 */
 
 SET NAMES utf8mb4;
@@ -30,88 +30,78 @@ CREATE TABLE `game_moves`  (
   `player` tinyint(4) NOT NULL,
   `move_time` datetime NULL DEFAULT NULL,
   PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uniq_game_xy`(`game_id`, `x`, `y`) USING BTREE,
   INDEX `game_id`(`game_id`) USING BTREE
-) ENGINE = MyISAM AUTO_INCREMENT = 449 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = Fixed;
-
--- 为落子并发安全添加唯一索引，防止同一局同一格被重复落子
-ALTER TABLE `game_moves` ADD UNIQUE INDEX uniq_game_xy (`game_id`, `x`, `y`);
+) ENGINE = MyISAM AUTO_INCREMENT = 514 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = FIXED;
 
 -- ----------------------------
 -- Records of game_moves
 -- ----------------------------
-INSERT INTO `game_moves` VALUES (448, 141, 1, 2, 10, 1, NULL);
-INSERT INTO `game_moves` VALUES (447, 139, 9, 6, 10, 1, NULL);
-INSERT INTO `game_moves` VALUES (446, 139, 8, 5, 8, 2, NULL);
-INSERT INTO `game_moves` VALUES (445, 139, 7, 5, 10, 1, NULL);
-INSERT INTO `game_moves` VALUES (444, 139, 6, 4, 9, 2, NULL);
-INSERT INTO `game_moves` VALUES (443, 139, 5, 4, 10, 1, NULL);
-INSERT INTO `game_moves` VALUES (442, 139, 4, 3, 9, 2, NULL);
-INSERT INTO `game_moves` VALUES (441, 139, 3, 3, 10, 1, NULL);
-INSERT INTO `game_moves` VALUES (440, 139, 2, 2, 9, 2, NULL);
-INSERT INTO `game_moves` VALUES (439, 139, 1, 2, 10, 1, NULL);
-INSERT INTO `game_moves` VALUES (438, 138, 12, 5, 11, 2, NULL);
-INSERT INTO `game_moves` VALUES (437, 138, 11, 4, 12, 1, NULL);
-INSERT INTO `game_moves` VALUES (436, 138, 10, 4, 10, 2, NULL);
-INSERT INTO `game_moves` VALUES (435, 138, 9, 3, 11, 1, NULL);
-INSERT INTO `game_moves` VALUES (434, 138, 8, 1, 7, 2, NULL);
-INSERT INTO `game_moves` VALUES (433, 138, 7, 1, 8, 1, NULL);
-INSERT INTO `game_moves` VALUES (432, 138, 6, 2, 8, 2, NULL);
-INSERT INTO `game_moves` VALUES (431, 138, 5, 2, 9, 1, NULL);
-INSERT INTO `game_moves` VALUES (430, 138, 4, 3, 9, 2, NULL);
-INSERT INTO `game_moves` VALUES (429, 138, 3, 2, 10, 1, NULL);
-INSERT INTO `game_moves` VALUES (428, 138, 2, 1, 10, 2, NULL);
-INSERT INTO `game_moves` VALUES (427, 138, 1, 1, 11, 1, NULL);
-INSERT INTO `game_moves` VALUES (426, 137, 10, 6, 8, 2, NULL);
-INSERT INTO `game_moves` VALUES (425, 137, 9, 3, 14, 1, NULL);
-INSERT INTO `game_moves` VALUES (424, 137, 8, 5, 9, 2, NULL);
-INSERT INTO `game_moves` VALUES (423, 137, 7, 2, 14, 1, NULL);
-INSERT INTO `game_moves` VALUES (422, 137, 6, 4, 10, 2, NULL);
-INSERT INTO `game_moves` VALUES (421, 137, 5, 1, 14, 1, NULL);
-INSERT INTO `game_moves` VALUES (420, 137, 4, 3, 11, 2, NULL);
-INSERT INTO `game_moves` VALUES (419, 137, 3, 3, 12, 1, NULL);
-INSERT INTO `game_moves` VALUES (418, 137, 2, 2, 12, 2, NULL);
-INSERT INTO `game_moves` VALUES (417, 137, 1, 2, 13, 1, NULL);
-INSERT INTO `game_moves` VALUES (416, 136, 9, 5, 11, 1, NULL);
-INSERT INTO `game_moves` VALUES (415, 136, 8, 4, 10, 2, NULL);
-INSERT INTO `game_moves` VALUES (414, 136, 7, 4, 11, 1, NULL);
-INSERT INTO `game_moves` VALUES (413, 136, 6, 3, 10, 2, NULL);
-INSERT INTO `game_moves` VALUES (412, 136, 5, 3, 11, 1, NULL);
-INSERT INTO `game_moves` VALUES (411, 136, 4, 2, 10, 2, NULL);
-INSERT INTO `game_moves` VALUES (410, 136, 3, 2, 11, 1, NULL);
-INSERT INTO `game_moves` VALUES (409, 136, 2, 1, 10, 2, NULL);
-INSERT INTO `game_moves` VALUES (408, 136, 1, 1, 11, 1, NULL);
-INSERT INTO `game_moves` VALUES (407, 135, 9, 6, 6, 1, NULL);
-INSERT INTO `game_moves` VALUES (406, 135, 8, 5, 7, 2, NULL);
-INSERT INTO `game_moves` VALUES (405, 135, 7, 5, 6, 1, NULL);
-INSERT INTO `game_moves` VALUES (404, 135, 6, 4, 7, 2, NULL);
-INSERT INTO `game_moves` VALUES (403, 135, 5, 4, 6, 1, NULL);
-INSERT INTO `game_moves` VALUES (402, 135, 4, 3, 7, 2, NULL);
-INSERT INTO `game_moves` VALUES (401, 135, 3, 3, 6, 1, NULL);
-INSERT INTO `game_moves` VALUES (400, 135, 2, 2, 7, 2, NULL);
-INSERT INTO `game_moves` VALUES (399, 135, 1, 2, 6, 1, NULL);
-INSERT INTO `game_moves` VALUES (398, 134, 2, 1, 3, 2, NULL);
-INSERT INTO `game_moves` VALUES (397, 134, 1, 1, 1, 1, NULL);
-INSERT INTO `game_moves` VALUES (396, 132, 1, 4, 13, 1, NULL);
-INSERT INTO `game_moves` VALUES (395, 131, 1, 1, 9, 1, NULL);
-INSERT INTO `game_moves` VALUES (394, 130, 1, 2, 4, 1, NULL);
-INSERT INTO `game_moves` VALUES (393, 128, 1, 1, 12, 1, NULL);
-INSERT INTO `game_moves` VALUES (392, 126, 1, 1, 12, 1, NULL);
-INSERT INTO `game_moves` VALUES (391, 125, 1, 1, 10, 1, NULL);
-INSERT INTO `game_moves` VALUES (390, 124, 1, 2, 3, 1, NULL);
-INSERT INTO `game_moves` VALUES (389, 120, 1, 3, 5, 1, NULL);
-INSERT INTO `game_moves` VALUES (388, 117, 3, 3, 10, 1, NULL);
-INSERT INTO `game_moves` VALUES (387, 117, 2, 2, 7, 2, NULL);
-INSERT INTO `game_moves` VALUES (386, 117, 1, 3, 7, 1, NULL);
-INSERT INTO `game_moves` VALUES (385, 114, 1, 1, 5, 1, NULL);
-INSERT INTO `game_moves` VALUES (384, 112, 6, 2, 10, 2, NULL);
-INSERT INTO `game_moves` VALUES (383, 112, 5, 1, 10, 1, NULL);
-INSERT INTO `game_moves` VALUES (382, 112, 4, 2, 11, 2, NULL);
-INSERT INTO `game_moves` VALUES (381, 112, 3, 2, 7, 1, NULL);
-INSERT INTO `game_moves` VALUES (380, 112, 2, 1, 3, 2, NULL);
-INSERT INTO `game_moves` VALUES (379, 112, 1, 1, 2, 1, NULL);
-INSERT INTO `game_moves` VALUES (378, 109, 1, 1, 13, 1, NULL);
-INSERT INTO `game_moves` VALUES (377, 108, 2, 2, 7, 2, NULL);
-INSERT INTO `game_moves` VALUES (376, 108, 1, 2, 6, 1, NULL);
+INSERT INTO `game_moves` VALUES (449, 144, 1, 4, 10, 1, NULL);
+INSERT INTO `game_moves` VALUES (450, 144, 2, 2, 3, 2, NULL);
+INSERT INTO `game_moves` VALUES (451, 145, 1, 7, 6, 1, NULL);
+INSERT INTO `game_moves` VALUES (452, 145, 2, 3, 8, 2, NULL);
+INSERT INTO `game_moves` VALUES (453, 145, 3, 4, 11, 1, NULL);
+INSERT INTO `game_moves` VALUES (454, 145, 4, 4, 7, 2, NULL);
+INSERT INTO `game_moves` VALUES (455, 146, 1, 5, 6, 1, NULL);
+INSERT INTO `game_moves` VALUES (456, 146, 2, 6, 5, 2, NULL);
+INSERT INTO `game_moves` VALUES (457, 149, 1, 5, 8, 1, NULL);
+INSERT INTO `game_moves` VALUES (458, 149, 2, 3, 3, 2, NULL);
+INSERT INTO `game_moves` VALUES (459, 149, 3, 7, 10, 1, NULL);
+INSERT INTO `game_moves` VALUES (460, 149, 4, 6, 6, 2, NULL);
+INSERT INTO `game_moves` VALUES (461, 149, 5, 4, 14, 1, NULL);
+INSERT INTO `game_moves` VALUES (462, 149, 6, 2, 8, 2, NULL);
+INSERT INTO `game_moves` VALUES (463, 149, 7, 2, 12, 1, NULL);
+INSERT INTO `game_moves` VALUES (464, 149, 8, 2, 5, 2, NULL);
+INSERT INTO `game_moves` VALUES (465, 149, 9, 4, 10, 1, NULL);
+INSERT INTO `game_moves` VALUES (466, 149, 10, 1, 4, 2, NULL);
+INSERT INTO `game_moves` VALUES (467, 149, 11, 8, 13, 1, NULL);
+INSERT INTO `game_moves` VALUES (468, 149, 12, 5, 7, 2, NULL);
+INSERT INTO `game_moves` VALUES (469, 149, 13, 10, 8, 1, NULL);
+INSERT INTO `game_moves` VALUES (470, 149, 14, 5, 2, 2, NULL);
+INSERT INTO `game_moves` VALUES (471, 149, 15, 6, 11, 1, NULL);
+INSERT INTO `game_moves` VALUES (472, 149, 16, 4, 6, 2, NULL);
+INSERT INTO `game_moves` VALUES (473, 149, 17, 10, 10, 1, NULL);
+INSERT INTO `game_moves` VALUES (474, 149, 18, 4, 5, 2, NULL);
+INSERT INTO `game_moves` VALUES (475, 150, 1, 11, 11, 1, NULL);
+INSERT INTO `game_moves` VALUES (476, 150, 2, 7, 6, 2, NULL);
+INSERT INTO `game_moves` VALUES (477, 150, 3, 5, 12, 1, NULL);
+INSERT INTO `game_moves` VALUES (478, 150, 4, 4, 8, 2, NULL);
+INSERT INTO `game_moves` VALUES (479, 150, 5, 1, 11, 1, NULL);
+INSERT INTO `game_moves` VALUES (480, 150, 6, 2, 6, 2, NULL);
+INSERT INTO `game_moves` VALUES (481, 150, 7, 8, 10, 1, NULL);
+INSERT INTO `game_moves` VALUES (482, 150, 8, 5, 4, 2, NULL);
+INSERT INTO `game_moves` VALUES (483, 156, 1, 2, 10, 1, NULL);
+INSERT INTO `game_moves` VALUES (484, 156, 2, 3, 7, 2, NULL);
+INSERT INTO `game_moves` VALUES (485, 157, 1, 5, 6, 1, NULL);
+INSERT INTO `game_moves` VALUES (486, 157, 2, 4, 9, 2, NULL);
+INSERT INTO `game_moves` VALUES (487, 157, 3, 8, 7, 1, NULL);
+INSERT INTO `game_moves` VALUES (488, 157, 4, 6, 10, 2, NULL);
+INSERT INTO `game_moves` VALUES (489, 158, 1, 3, 10, 1, NULL);
+INSERT INTO `game_moves` VALUES (490, 158, 2, 3, 8, 2, NULL);
+INSERT INTO `game_moves` VALUES (491, 158, 3, 5, 13, 1, NULL);
+INSERT INTO `game_moves` VALUES (492, 158, 4, 2, 6, 2, NULL);
+INSERT INTO `game_moves` VALUES (493, 158, 5, 6, 11, 1, NULL);
+INSERT INTO `game_moves` VALUES (494, 158, 6, 1, 4, 2, NULL);
+INSERT INTO `game_moves` VALUES (495, 158, 7, 3, 12, 1, NULL);
+INSERT INTO `game_moves` VALUES (496, 158, 8, 3, 5, 2, NULL);
+INSERT INTO `game_moves` VALUES (497, 158, 9, 8, 4, 1, NULL);
+INSERT INTO `game_moves` VALUES (498, 158, 10, 4, 7, 2, NULL);
+INSERT INTO `game_moves` VALUES (499, 158, 11, 7, 8, 1, NULL);
+INSERT INTO `game_moves` VALUES (500, 158, 12, 1, 13, 2, NULL);
+INSERT INTO `game_moves` VALUES (501, 159, 1, 5, 8, 1, NULL);
+INSERT INTO `game_moves` VALUES (502, 160, 1, 5, 7, 1, NULL);
+INSERT INTO `game_moves` VALUES (503, 160, 2, 4, 7, 2, NULL);
+INSERT INTO `game_moves` VALUES (504, 160, 3, 5, 10, 1, NULL);
+INSERT INTO `game_moves` VALUES (505, 163, 1, 3, 7, 1, NULL);
+INSERT INTO `game_moves` VALUES (506, 163, 2, 4, 7, 2, NULL);
+INSERT INTO `game_moves` VALUES (507, 163, 3, 3, 8, 1, NULL);
+INSERT INTO `game_moves` VALUES (508, 163, 4, 4, 8, 2, NULL);
+INSERT INTO `game_moves` VALUES (509, 163, 5, 3, 9, 1, NULL);
+INSERT INTO `game_moves` VALUES (510, 163, 6, 4, 9, 2, NULL);
+INSERT INTO `game_moves` VALUES (511, 163, 7, 3, 10, 1, NULL);
+INSERT INTO `game_moves` VALUES (512, 163, 8, 4, 10, 2, NULL);
+INSERT INTO `game_moves` VALUES (513, 163, 9, 3, 11, 1, NULL);
 
 -- ----------------------------
 -- Table structure for game_record
@@ -130,38 +120,25 @@ CREATE TABLE `game_record`  (
   INDEX `black_id`(`black_id`) USING BTREE,
   INDEX `white_id`(`white_id`) USING BTREE,
   INDEX `winner`(`winner`) USING BTREE
-) ENGINE = MyISAM AUTO_INCREMENT = 142 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = Fixed;
+) ENGINE = MyISAM AUTO_INCREMENT = 165 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = FIXED;
 
 -- ----------------------------
 -- Records of game_record
 -- ----------------------------
-INSERT INTO `game_record` VALUES (138, 154, 1, 2, 2, '2025-06-26 17:21:31', '2025-06-26 17:21:43');
-INSERT INTO `game_record` VALUES (137, 153, 1, 2, 2, '2025-06-26 17:19:17', '2025-06-26 17:19:29');
-INSERT INTO `game_record` VALUES (135, 149, 2, 1, 2, '2025-06-26 17:17:37', '2025-06-26 17:17:51');
-INSERT INTO `game_record` VALUES (134, 149, 2, 1, 2, '2025-06-26 17:17:25', '2025-06-26 17:17:30');
-INSERT INTO `game_record` VALUES (131, 147, 2, 1, 1, '2025-06-26 17:11:11', '2025-06-26 17:11:14');
-INSERT INTO `game_record` VALUES (130, 146, 2, 1, 1, '2025-06-26 17:07:01', '2025-06-26 17:07:04');
-INSERT INTO `game_record` VALUES (126, 143, 1, 2, NULL, '2025-06-26 17:00:34', NULL);
-INSERT INTO `game_record` VALUES (125, 142, 1, 2, 1, '2025-06-26 17:00:00', '2025-06-26 17:00:02');
-INSERT INTO `game_record` VALUES (124, 141, 2, 1, 2, '2025-06-26 16:58:05', '2025-06-26 16:58:08');
-INSERT INTO `game_record` VALUES (123, 140, 2, 1, 1, '2025-06-26 16:56:00', '2025-06-26 16:56:02');
-INSERT INTO `game_record` VALUES (122, 139, 1, 2, 2, '2025-06-26 16:50:28', '2025-06-26 16:50:29');
-INSERT INTO `game_record` VALUES (121, 139, 1, 2, 2, '2025-06-26 16:50:21', '2025-06-26 16:50:22');
-INSERT INTO `game_record` VALUES (120, 138, 2, 1, 2, '2025-06-26 16:47:00', '2025-06-26 16:47:03');
-INSERT INTO `game_record` VALUES (119, 138, 2, 1, 2, '2025-06-26 16:46:42', '2025-06-26 16:46:43');
-INSERT INTO `game_record` VALUES (118, 138, 2, 1, 2, '2025-06-26 16:46:37', '2025-06-26 16:46:38');
-INSERT INTO `game_record` VALUES (117, 137, 1, 2, 2, '2025-06-26 16:45:59', '2025-06-26 16:46:06');
-INSERT INTO `game_record` VALUES (116, 136, 2, 1, 2, '2025-06-26 16:41:20', '2025-06-26 16:41:22');
-INSERT INTO `game_record` VALUES (115, 135, 1, 2, 2, '2025-06-26 16:37:16', '2025-06-26 16:37:17');
-INSERT INTO `game_record` VALUES (114, 134, 2, 1, 2, '2025-06-26 16:34:46', '2025-06-26 16:34:50');
-INSERT INTO `game_record` VALUES (113, 133, 2, 1, NULL, '2025-06-26 16:32:55', NULL);
-INSERT INTO `game_record` VALUES (112, 132, 2, 1, NULL, '2025-06-26 16:32:22', NULL);
-INSERT INTO `game_record` VALUES (111, 131, 1, 2, NULL, '2025-06-26 16:29:50', '2025-06-26 16:29:51');
-INSERT INTO `game_record` VALUES (110, 131, 1, 2, NULL, '2025-06-26 16:29:47', '2025-06-26 16:29:47');
-INSERT INTO `game_record` VALUES (109, 130, 1, 2, NULL, '2025-06-26 16:23:57', '2025-06-26 16:24:00');
-INSERT INTO `game_record` VALUES (108, 129, 2, 1, NULL, '2025-06-26 16:23:45', '2025-06-26 16:23:49');
-INSERT INTO `game_record` VALUES (107, 126, 2, 1, NULL, '2025-06-26 16:14:43', '2025-06-26 16:14:44');
-INSERT INTO `game_record` VALUES (106, 125, 1, 2, NULL, '2025-06-26 16:14:30', '2025-06-26 16:14:34');
+INSERT INTO `game_record` VALUES (142, 156, 1, 2, 2, '2025-06-26 19:56:12', '2025-06-26 19:56:28');
+INSERT INTO `game_record` VALUES (143, 156, 1, 2, 2, '2025-06-26 19:56:34', '2025-06-26 19:56:36');
+INSERT INTO `game_record` VALUES (144, 158, 1, 2, 2, '2025-06-26 20:01:28', '2025-06-26 20:02:25');
+INSERT INTO `game_record` VALUES (145, 163, 1, 2, 2, '2025-06-26 20:16:41', '2025-06-26 20:20:00');
+INSERT INTO `game_record` VALUES (146, 164, 1, 2, NULL, '2025-06-26 20:20:17', NULL);
+INSERT INTO `game_record` VALUES (147, 165, 1, 2, 1, '2025-06-26 20:29:24', '2025-06-26 20:29:34');
+INSERT INTO `game_record` VALUES (148, 165, 1, 3, 1, '2025-06-26 20:29:39', '2025-06-26 20:31:54');
+INSERT INTO `game_record` VALUES (149, 166, 1, 2, 1, '2025-06-26 20:33:05', '2025-06-26 20:33:52');
+INSERT INTO `game_record` VALUES (150, 167, 1, 2, 1, '2025-06-26 20:34:10', '2025-06-26 20:35:19');
+INSERT INTO `game_record` VALUES (151, 168, 1, 2, 1, '2025-06-26 20:40:44', '2025-06-26 20:41:15');
+INSERT INTO `game_record` VALUES (152, 169, 1, 2, 1, '2025-06-26 20:43:05', '2025-06-26 20:43:24');
+INSERT INTO `game_record` VALUES (154, 171, 1, 2, 1, '2025-06-26 20:49:16', '2025-06-26 20:49:48');
+INSERT INTO `game_record` VALUES (155, 172, 1, 2, 1, '2025-06-26 20:58:20', '2025-06-26 20:58:35');
+INSERT INTO `game_record` VALUES (157, 174, 3, 2, 3, '2025-06-26 21:10:11', '2025-06-26 21:10:47');
 
 -- ----------------------------
 -- Table structure for room
@@ -170,10 +147,10 @@ DROP TABLE IF EXISTS `room`;
 CREATE TABLE `room`  (
   `room_id` bigint(20) NOT NULL AUTO_INCREMENT,
   `owner_id` bigint(20) NOT NULL,
-  `status` tinyint(4) NULL DEFAULT 0,
-  `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP,
+  `status` tinyint(4) NOT NULL DEFAULT 0,
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`room_id`) USING BTREE
-) ENGINE = MyISAM AUTO_INCREMENT = 156 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = Fixed;
+) ENGINE = MyISAM AUTO_INCREMENT = 180 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = FIXED;
 
 -- ----------------------------
 -- Records of room
@@ -187,9 +164,10 @@ CREATE TABLE `room_user`  (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `room_id` bigint(20) NOT NULL,
   `user_id` bigint(20) NOT NULL,
-  `join_time` datetime NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`) USING BTREE
-) ENGINE = MyISAM AUTO_INCREMENT = 441 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = Fixed;
+  `role` tinyint(4) UNSIGNED ZEROFILL NOT NULL DEFAULT 'player',
+  `join_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`, `role`) USING BTREE
+) ENGINE = MyISAM AUTO_INCREMENT = 512 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = FIXED;
 
 -- ----------------------------
 -- Records of room_user
@@ -209,12 +187,13 @@ CREATE TABLE `user`  (
   PRIMARY KEY (`user_id`) USING BTREE,
   UNIQUE INDEX `username`(`username`) USING BTREE,
   UNIQUE INDEX `email`(`email`) USING BTREE
-) ENGINE = MyISAM AUTO_INCREMENT = 3 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = Dynamic;
+) ENGINE = MyISAM AUTO_INCREMENT = 4 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of user
 -- ----------------------------
 INSERT INTO `user` VALUES (1, '123456', '123456', '$2a$10$iV1J1PMGathqMETtQR0MgecoW6e6.nlWgBwjDligMO1t9.THdeFiW', 'liuchuanhua2003@outlook.com', '2025-06-23 18:52:46');
 INSERT INTO `user` VALUES (2, '12345678', '12345678', '$2a$10$4Qyn8tSzhcmWjZz8QB5aLOa/v5QKSEIVJnHf.a4kNgpJQ6TUp3fMi', '3236870353@qq.com', '2025-06-25 16:13:28');
+INSERT INTO `user` VALUES (3, '123456789', '123456789', '$2a$10$OWY9VxsFF4dPZi.6F4rqYusssuGNAy.u5EslG/ByKxLpS3ZFm27kC', 'qwery@gmail.com', '2025-06-26 20:17:54');
 
 SET FOREIGN_KEY_CHECKS = 1;

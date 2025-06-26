@@ -17,6 +17,7 @@ export const API_URLS = {
   ROOM_CURRENT: API_BASE + '/api/room/current-room', // GET
   ROOM_LEAVE: API_BASE + '/api/room/leave',       // POST
   ROOM_SEARCH: API_BASE + '/api/room/search',     // GET
+  ROOM_WATCH: API_BASE + '/api/room/watch', // POST {userId, roomId}
 
   // 游戏相关（REST 辅助）
   GAME_BOARD: API_BASE + '/api/game/board',       // GET ?roomId=xxx

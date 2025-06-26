@@ -4,10 +4,10 @@
       <div class="room-item" v-for="room in rooms" :key="room.roomId">
         <span>房间号: <b>{{ room.roomId }}</b></span>
         <span>房主ID: {{ room.ownerId }}</span>
-        <span>人数: {{ room.count }}/2</span>
+        <span>玩家: {{ room.count }}/2</span>
         <span>状态: {{ getStatusText(room.status) }}</span>
-        <button @click="$emit('join-room', room.roomId)" :disabled="room.status !== 0 || joinRoomLoading[room.roomId]">{{ joinRoomLoading[room.roomId] ? '加入中...' : '加入' }}</button>
-        <button v-if="room.status === 1" @click="$emit('watch-room', room.roomId)" :disabled="watchRoomLoading[room.roomId]">{{ watchRoomLoading[room.roomId] ? '观战中...' : '观战' }}</button>
+        <button v-if="room.status === 0" @click="$emit('join-room', room.roomId)" :disabled="joinRoomLoading[room.roomId]">{{ joinRoomLoading[room.roomId] ? '加入中...' : '加入' }}</button>
+        <button v-else @click="$emit('watch-room', room.roomId)" :disabled="watchRoomLoading[room.roomId]">{{ watchRoomLoading[room.roomId] ? '观战中...' : '观战' }}</button>
       </div>
     </template>
     <template v-else>

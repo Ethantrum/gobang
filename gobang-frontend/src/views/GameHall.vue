@@ -55,7 +55,7 @@
 <script>
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { fetchRoomList, createRoom, joinRoomById, searchRoom } from '@/services/gameHallService'
+import { fetchRoomList, createRoom, joinRoomById, searchRoom, roomWatch } from '@/services/gameHallService'
 import RoomList from '@/components/RoomList.vue'
 import { globalState } from '@/globalState'
 import { fetchUserInfo } from '@/services/userService'
@@ -159,10 +159,10 @@ export default {
           showToast('加入房间成功！')
           showJoinRoom.value = false
           sessionStorage.setItem('roomId', joinRoomId.value)
-          // 跳转到五子棋页面，传递加入的房间ID
+          // 跳转到五子棋页面，传递加入的房间ID和身份类型
           router.push({
             name: 'Gobang',
-            params: { roomId: joinRoomId.value }
+            params: { roomId: joinRoomId.value, role: 'player' }
           })
         } else {
           showToast(res.msg || '加入房间失败')
@@ -204,10 +204,10 @@ export default {
         if (res.code === 0) {
           showToast('加入房间成功！')
           sessionStorage.setItem('roomId', roomId)
-          // 跳转到五子棋页面，传递房间ID
+          // 跳转到五子棋页面，传递房间ID和身份类型
           router.push({
             name: 'Gobang',
-            params: { roomId: roomId }
+            params: { roomId: roomId, role: 'player' }
           })
         } else {
           showToast(res.msg || '加入房间失败')
@@ -223,7 +223,13 @@ export default {
     const watchRoom = async (roomId) => {
       watchRoomLoading[roomId] = true
       try {
-        router.push({ name: 'Gobang', params: { roomId } })
+        const res = await roomWatch(roomId)
+        if (res.code === 0) {
+          // 跳转到五子棋页面，传递房间ID和身份类型
+          router.push({ name: 'Gobang', params: { roomId, role: 'watch' } })
+        } else {
+          showToast(res.msg || '观战失败')
+        }
       } finally {
         watchRoomLoading[roomId] = false
       }
