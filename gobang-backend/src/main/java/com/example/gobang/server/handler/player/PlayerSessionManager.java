@@ -269,6 +269,8 @@ public class PlayerSessionManager {
         startData.put("whiteId", whiteId);
         startData.put("gameId", record.getId());
         broadcastToRoom(roomId, WSResult.start(startData));
+        // 新增：推送给观战者
+        watchSessionManager.broadcastToRoom(roomId, WSResult.start(startData));
     }
 
     // 封装：更新room_user表角色
