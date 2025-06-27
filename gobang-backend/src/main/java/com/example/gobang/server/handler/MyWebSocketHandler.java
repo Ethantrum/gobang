@@ -88,6 +88,21 @@ public class MyWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void handleMessage(WebSocketSession session, WebSocketMessage<?> message) throws Exception {
         log.info("[WS] handleMessage sessionId={}, message={}", session.getId(), message.getPayload());
+        // 统一身份校验
+        String payload = message.getPayload().toString();
+        com.alibaba.fastjson.JSONObject msg = com.alibaba.fastjson.JSON.parseObject(payload);
+        String type = msg.getString("type");
+        Byte role = (Byte) session.getAttributes().get("role");
+        if (isPlayerOp(type) && !isPlayerRole(role)) {
+            session.sendMessage(new TextMessage(com.alibaba.fastjson.JSON.toJSONString(WSResult.error("观战者无法进行此操作"))));
+            log.warn("[WS] 拒绝观战者操作 type={}, sessionId={}", type, session.getId());
+            return;
+        }
+        if (isWatchOp(type) && !isWatchRole(role)) {
+            session.sendMessage(new TextMessage(com.alibaba.fastjson.JSON.toJSONString(WSResult.error("只有观战者可以进行此操作"))));
+            log.warn("[WS] 拒绝非观战者操作 type={}, sessionId={}", type, session.getId());
+            return;
+        }
         try {
             dispatcher.dispatch(session, message);
         } catch (Exception e) {
@@ -97,6 +112,21 @@ public class MyWebSocketHandler extends TextWebSocketHandler {
             String errorJson = JSON.toJSONString(errorResult);
             session.sendMessage(new TextMessage(errorJson));
         }
+    }
+
+    private boolean isPlayerOp(String type) {
+        // 只允许玩家的操作类型
+        return java.util.Set.of("move", "undo", "restart_request", "restart_response", "join").contains(type);
+    }
+    private boolean isWatchOp(String type) {
+        // 只允许观战者的操作类型
+        return java.util.Set.of("watchJoin", "watchLeave").contains(type);
+    }
+    private boolean isPlayerRole(Byte role) {
+        return role != null && (role == ROLE_PLAYER || role == ROLE_BLACK || role == ROLE_WHITE);
+    }
+    private boolean isWatchRole(Byte role) {
+        return role != null && role == ROLE_WATCH;
     }
 
     @Override
