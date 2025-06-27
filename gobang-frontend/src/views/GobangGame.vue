@@ -226,6 +226,7 @@
               syncIsWatcher()
               break
             case 'start': {
+              console.log('[WS][start] 收到start消息', msg)
               players.value = msg.data.players
               roomInfo.value.status = 1
               boardData.value = Array(15).fill().map(() => Array(15).fill(0))
@@ -234,12 +235,17 @@
               winningLine.value = []
               // 自动同步 isWatcher
               syncIsWatcher()
-              // 优化提示：明确告知用户身份
-              const me = msg.data.players.find(p => p.userId == user.userId)
-              if (me && !me.isWatcher) {
-                showToast(`游戏开始！黑棋先行，你执${me.isBlack ? '黑棋' : '白棋'}。`)
+              // 观战者也刷新棋盘和玩家信息
+              if (isWatcher.value) {
+                showToast('新对局已开始，黑棋先行')
               } else {
-                showToast('游戏开始！黑棋先行。')
+                // 优化提示：明确告知用户身份
+                const me = msg.data.players.find(p => p.userId == user.userId)
+                if (me && !me.isWatcher) {
+                  showToast(`游戏开始！黑棋先行，你执${me.isBlack ? '黑棋' : '白棋'}。`)
+                } else {
+                  showToast('游戏开始！黑棋先行。')
+                }
               }
               waitingRestart.value = false
               if (waitingRestartTimer) clearTimeout(waitingRestartTimer)
