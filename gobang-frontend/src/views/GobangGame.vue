@@ -236,7 +236,7 @@
               syncIsWatcher()
               // 优化提示：明确告知用户身份
               const me = msg.data.players.find(p => p.userId == user.userId)
-              if (me) {
+              if (me && !me.isWatcher) {
                 showToast(`游戏开始！黑棋先行，你执${me.isBlack ? '黑棋' : '白棋'}。`)
               } else {
                 showToast('游戏开始！黑棋先行。')
