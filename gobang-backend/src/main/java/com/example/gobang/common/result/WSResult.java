@@ -1,6 +1,7 @@
 package com.example.gobang.common.result;
 
 import lombok.Data;
+import com.alibaba.fastjson.JSONObject;
 
 import java.io.Serializable;
 
@@ -74,6 +75,15 @@ public class WSResult<T> implements Serializable {
         WSResult<Void> wsResult = new WSResult<>();
         wsResult.type = "restart_request";
         wsResult.data = null;
+        return wsResult;
+    }
+
+    public static WSResult<JSONObject> restartRequest(Long fromUserId) {
+        WSResult<JSONObject> wsResult = new WSResult<>();
+        wsResult.type = "restart_request";
+        JSONObject obj = new JSONObject();
+        obj.put("fromUserId", fromUserId);
+        wsResult.data = obj;
         return wsResult;
     }
 

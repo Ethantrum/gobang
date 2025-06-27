@@ -86,6 +86,10 @@
       const user = globalState.user
       const roomInfo = ref({ status: 0, count: 0 })
       const userId = ref(localStorage.getItem('userId') || 'user_' + Math.floor(Math.random() * 10000))
+      // 保证user.userId有值
+      if (!user.userId && userId.value) {
+        user.userId = userId.value
+      }
       const leaveLoading = ref(false)
       const restartLoading = ref(false)
       const showRestartDialog = ref(false)
@@ -214,6 +218,7 @@
       const onWSMessage = (e) => {
         try {
           const msg = JSON.parse(e.data)
+          console.log('[WS] onWSMessage', msg)
           switch (msg.type) {
             case 'join':
               players.value = msg.data.players
@@ -353,6 +358,33 @@
                 waitingRestart.value = false
               }
               break
+            case 'restore':
+              // 新增：断线重连恢复棋局
+              if (msg.data) {
+                boardData.value = msg.data.board || Array(15).fill().map(() => Array(15).fill(0))
+                currentPlayer.value = msg.data.nextPlayer || 1
+                players.value = msg.data.players || []
+                winner.value = msg.data.winner || null
+                winningLine.value = msg.data.winningLine || []
+                syncIsWatcher()
+                // 保证user.userId有值
+                if (!user.userId && userId.value) {
+                  user.userId = userId.value
+                }
+                // 只有有落子时才提示
+                const hasMove = msg.data.board && msg.data.board.some(row => row.some(cell => cell !== 0))
+                // 日志：重连恢复后关键信息
+                console.log('[WS][restore] players:', players.value)
+                console.log('[WS][restore] userId:', user.userId)
+                const me = players.value.find(p => p.userId == user.userId)
+                console.log('[WS][restore] me:', me)
+                console.log('[WS][restore] myPieceText:', myPieceText.value)
+                console.log('[WS][restore] myPieceClass:', myPieceClass.value)
+                if (hasMove) {
+                  showToast('棋局已恢复')
+                }
+              }
+              break
             default:
               if (typeof msg.data === 'string' && msg.data.includes('拒绝再来一局')) {
                 showToast(msg.data)
@@ -371,11 +403,48 @@
       }
   
       // 连接WebSocket
-      const connectWebSocket = () => connectWs(socket, wsStatus, {
-        userId: userId.value,
-        roomId: roomId.value,
-        onMessage: onWSMessage
-      })
+      const connectWebSocket = () => {
+        console.log('[WS] connectWebSocket called');
+        connectWs(socket, wsStatus, {
+          userId: userId.value,
+          roomId: roomId.value,
+          onMessage: onWSMessage
+        })
+        // 先恢复棋局再自动join
+        const trySendRestoreAndJoin = () => {
+          setTimeout(() => {
+            if (socket.value && socket.value.readyState === WebSocket.OPEN) {
+              // 1. 先恢复棋局
+              console.log('[WS] send restore_request', { userId: userId.value, roomId: roomId.value });
+              sendWs(socket, JSON.stringify({
+                type: 'restore_request',
+                data: { userId: userId.value, roomId: roomId.value }
+              }))
+              // 2. 再join房间，确保后端注册session
+              setTimeout(() => {
+                if (socket.value && socket.value.readyState === WebSocket.OPEN) {
+                  if (routeRole.value === 'watch') {
+                    console.log('[WS] send watchJoin', { userId: userId.value, username: user.nickname, roomId: roomId.value });
+                    sendWs(socket, JSON.stringify({
+                      type: 'watchJoin',
+                      data: { userId: userId.value, username: user.nickname, roomId: roomId.value }
+                    }))
+                  } else {
+                    console.log('[WS] send join', { userId: userId.value, username: user.nickname, roomId: roomId.value });
+                    sendWs(socket, JSON.stringify({
+                      type: 'join',
+                      data: { userId: userId.value, username: user.nickname, roomId: roomId.value }
+                    }))
+                  }
+                }
+              }, 200)
+            } else {
+              trySendRestoreAndJoin()
+            }
+          }, 200)
+        }
+        trySendRestoreAndJoin()
+      }
   
       // 发送加入房间/观战
       const sendJoin = () => {
@@ -421,8 +490,10 @@
         if (isWatcher.value) return
         // 新增：房间玩家不足2人时提示
         const playerCount = players.value.filter(p => !p.isWatcher).length
+        console.log('【再来一局】当前playerCount:', playerCount, 'players:', players.value)
         if (playerCount < 2) {
           showToast('房间内玩家不足，无法开始新对局。')
+          waitingRestart.value = false
           return
         }
         if (socket.value) {

@@ -8,6 +8,8 @@ import com.example.gobang.server.handler.watch.WatchSessionManager;
 import com.example.gobang.server.mapper.RoomUserMapper;
 import com.example.gobang.pojo.entity.RoomUser;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Controller;
@@ -24,6 +26,7 @@ import static com.example.gobang.common.constant.RoomUserRoleConstant.*;
 @Component
 @Controller
 public class MyWebSocketHandler extends TextWebSocketHandler {
+    private static final Logger log = LoggerFactory.getLogger(MyWebSocketHandler.class);
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Autowired
@@ -38,6 +41,7 @@ public class MyWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
         System.out.println("WebSocket连接建立: " + session.getId());
+        log.info("[WS] afterConnectionEstablished sessionId={}", session.getId());
         Long roomId = null;
         Long userId = null;
         byte role = ROLE_WATCH;
@@ -56,6 +60,7 @@ public class MyWebSocketHandler extends TextWebSocketHandler {
             session.close(CloseStatus.BAD_DATA.withReason("Invalid parameters"));
             return;
         }
+        log.info("[WS] afterConnectionEstablished userId={}, roomId={}", userId, roomId);
         RoomUser roomUser = roomUserMapper.selectOne(
                 new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<RoomUser>()
                         .eq("user_id", userId)
@@ -70,15 +75,19 @@ public class MyWebSocketHandler extends TextWebSocketHandler {
         session.getAttributes().put("userId", userId);
         session.getAttributes().put("roomId", roomId);
         session.getAttributes().put("role", role);
-        if (ROLE_PLAYER.equals(role)) {
+        log.info("[WS] afterConnectionEstablished role={}", role);
+        if (ROLE_PLAYER.equals(role) || ROLE_BLACK.equals(role) || ROLE_WHITE.equals(role)) {
+            log.info("[WS] registerPlayerSession called from afterConnectionEstablished");
             playerSessionManager.registerPlayerSession(roomId, userId, session);
         } else if (ROLE_WATCH.equals(role)) {
+            log.info("[WS] registerWatchSession called from afterConnectionEstablished");
             watchSessionManager.registerWatchSession(roomId, userId, session);
         }
     }
 
     @Override
     public void handleMessage(WebSocketSession session, WebSocketMessage<?> message) throws Exception {
+        log.info("[WS] handleMessage sessionId={}, message={}", session.getId(), message.getPayload());
         try {
             dispatcher.dispatch(session, message);
         } catch (Exception e) {
@@ -93,6 +102,7 @@ public class MyWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
         System.out.println("WebSocket连接关闭: " + session.getId() + ", 状态: " + status);
+        log.info("[WS] afterConnectionClosed sessionId={}, status={}", session.getId(), status);
         Long roomId = (Long) session.getAttributes().get("roomId");
         Long userId = (Long) session.getAttributes().get("userId");
         Byte role = (Byte)session.getAttributes().get("role");

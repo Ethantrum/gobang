@@ -26,9 +26,12 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import static com.example.gobang.common.constant.RoomStatusConstant.ROOM_STATUS_READY;
 import com.example.gobang.pojo.entity.RoomUser;
 import com.example.gobang.server.handler.watch.WatchSessionManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Component
 public class PlayerSessionManager {
+    private static final Logger log = LoggerFactory.getLogger(PlayerSessionManager.class);
     // roomId -> (userId -> Set<session>)
     private final ConcurrentHashMap<Long, ConcurrentHashMap<Long, Set<WebSocketSession>>> roomUserSessionsMap = new ConcurrentHashMap<>();
 
@@ -51,19 +54,23 @@ public class PlayerSessionManager {
      * 注册玩家session，只允许一个session，多余的直接拒绝
      */
     public synchronized void registerPlayerSession(Long roomId, Long userId, WebSocketSession newSession) {
+        log.info("[registerPlayerSession] roomId={}, userId={}, sessionId={}", roomId, userId, newSession.getId());
         roomUserSessionsMap.putIfAbsent(roomId, new ConcurrentHashMap<>());
         ConcurrentHashMap<Long, Set<WebSocketSession>> userSessions = roomUserSessionsMap.get(roomId);
         userSessions.putIfAbsent(userId, new HashSet<>());
         Set<WebSocketSession> sessionSet = userSessions.get(userId);
         if (!sessionSet.isEmpty()) {
+            log.warn("[registerPlayerSession] userId={} already has session, closing newSession", userId);
             try {
                 newSession.close();
             } catch (IOException ignored) {}
             return;
         }
         sessionSet.add(newSession);
+        log.info("[registerPlayerSession] session registered, current userSessions: {}", userSessions);
         // 检查房间内player数量，满2人则分配棋子并开始游戏
         if (getPlayerCount(roomId) == 2) {
+            log.info("[registerPlayerSession] roomId={} 满2人，开始分配棋子并开始游戏", roomId);
             startGameForTwoPlayers(roomId, userSessions);
         }
     }
@@ -74,6 +81,7 @@ public class PlayerSessionManager {
     public synchronized void removePlayerSession(WebSocketSession session) {
         Object roomIdObj = session.getAttributes().get("roomId");
         Object userIdObj = session.getAttributes().get("userId");
+        log.info("[removePlayerSession] roomId={}, userId={}, sessionId={}", roomIdObj, userIdObj, session.getId());
         if (!(roomIdObj instanceof Long) || !(userIdObj instanceof Long)) {
             return;
         }
@@ -167,15 +175,25 @@ public class PlayerSessionManager {
      * 向指定房间的所有玩家会话广播消息（不再自动推送给观战者）
      */
     public synchronized void broadcastToRoom(Long roomId, Object message) {
+        log.info("[broadcastToRoom] roomId={}, messageType={}", roomId, message != null ? message.getClass().getSimpleName() : null);
         String messageJson = JSON.toJSONString(message);
         TextMessage textMessage = new TextMessage(messageJson);
-        roomUserSessionsMap.get(roomId).values().stream()
+        ConcurrentHashMap<Long, Set<WebSocketSession>> userSessions = roomUserSessionsMap.get(roomId);
+        if (userSessions == null) {
+            log.warn("[broadcastToRoom] roomId={} 没有注册的玩家session，跳过推送", roomId);
+            return;
+        }
+        log.info("[broadcastToRoom] 推送给userIds: {}", userSessions.keySet());
+        userSessions.values().stream()
                 .flatMap(Set::stream)
                 .filter(WebSocketSession::isOpen)
                 .forEach(session -> {
                     try {
                         session.sendMessage(textMessage);
-                    } catch (IOException ignored) {}
+                        log.info("[broadcastToRoom] 推送成功 sessionId={}", session.getId());
+                    } catch (IOException e) {
+                        log.error("[broadcastToRoom] 推送失败 sessionId={}", session.getId(), e);
+                    }
                 });
         // 不再自动推送给观战者，观战推送请在业务层显式调用
     }
@@ -206,6 +224,14 @@ public class PlayerSessionManager {
 
     // 封装分配棋子和开始游戏的私有方法
     private void startGameForTwoPlayers(Long roomId, ConcurrentHashMap<Long, Set<WebSocketSession>> userSessions) {
+        // 1. 检查是否已有未结束的对局
+        GameRecord exist = gameRecordMapper.selectOne(
+            new QueryWrapper<GameRecord>().eq("room_id", roomId).isNull("end_time")
+        );
+        if (exist != null) {
+            log.warn("[startGameForTwoPlayers] roomId={} 已有未结束对局，跳过新建", roomId);
+            return;
+        }
         // 1. 设置房间状态为满员
         Room room = roomMapper.selectById(roomId);
         if (room != null) {
