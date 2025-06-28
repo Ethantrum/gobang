@@ -598,6 +598,7 @@ export default {
       restartResponding,
       waitingRestart,
       restartCountdown,
+      waitingRestartCountdown,
       indicatorText,
       isWinningPiece,
       playerCount,
