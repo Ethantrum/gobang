@@ -3,6 +3,7 @@ package com.example.gobang.server.handler.watch;
 import com.example.gobang.server.handler.WSMessageHandler;
 import com.example.gobang.server.handler.WebSocketMessageHandler;
 import com.example.gobang.server.service.manage.room.RedisRoomManager;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketSession;
@@ -13,11 +14,10 @@ import java.util.*;
  * 观战者离开房间，自动处理房主转让、房间解散、成员清理等。
  */
 @Component
+@RequiredArgsConstructor
 public class WatchLeaveHandler implements WebSocketMessageHandler {
-    @Autowired
-    private WatchSessionManager watchSessionManager;
-    @Autowired
-    private RedisRoomManager redisRoomManager;
+    private final WatchSessionManager watchSessionManager;
+    private final RedisRoomManager redisRoomManager;
 
     @WSMessageHandler("watchLeave")
     public void handleWatchLeave(WebSocketSession session, Object data) {

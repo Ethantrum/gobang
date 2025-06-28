@@ -7,6 +7,7 @@ import com.example.gobang.server.handler.WSMessageHandler;
 import com.example.gobang.server.handler.WebSocketMessageHandler;
 import com.example.gobang.server.handler.watch.WatchSessionManager;
 import com.example.gobang.server.service.manage.room.RedisRoomManager;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketSession;
@@ -19,13 +20,11 @@ import java.util.*;
  * 只允许当前对局玩家悔棋，撤销最后一步落子，自动同步棋盘。
  */
 @Component
+@RequiredArgsConstructor
 public class PlayerUndoHandler implements WebSocketMessageHandler {
-    @Autowired
-    private PlayerSessionManager playerSessionManager;
-    @Autowired
-    private WatchSessionManager watchSessionManager;
-    @Autowired
-    private RedisRoomManager redisRoomManager;
+    private final PlayerSessionManager playerSessionManager;
+    private final WatchSessionManager watchSessionManager;
+    private final RedisRoomManager redisRoomManager;
 
     @WSMessageHandler("undo")
     public void handleUndo(WebSocketSession session, JSONObject data) {

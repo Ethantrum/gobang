@@ -3,6 +3,7 @@ package com.example.gobang.server.service.room.impl;
 import com.example.gobang.common.result.Result;
 import com.example.gobang.pojo.vo.room.RoomListVO;
 import com.example.gobang.server.service.room.RoomListService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
@@ -14,9 +15,9 @@ import java.util.stream.Collectors;
  * 房间列表服务实现：分页获取所有房间及其玩家人数、状态等信息。
  */
 @Service
+@RequiredArgsConstructor
 public class RoomListServiceImpl implements RoomListService {
-    @Autowired
-    private RedisTemplate<String, Object> redisTemplate;
+    private final RedisTemplate<String, Object> redisTemplate;
 
     /**
      * 获取房间列表。

@@ -5,8 +5,12 @@ import com.example.gobang.server.service.room.RoomJoinService;
 import com.example.gobang.server.service.manage.room.RedisRoomManager;
 import com.example.gobang.server.mapper.UserMapper;
 import com.example.gobang.pojo.entity.User;
+import com.example.gobang.server.handler.player.PlayerSessionManager;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -22,13 +26,14 @@ import static com.example.gobang.common.constant.RoomStatusConstant.ROOM_MAX_PLA
  * 只允许玩家身份加入，自动处理观战身份切换和反向索引。
  */
 @Service
+@RequiredArgsConstructor
 public class RoomJoinServiceImpl implements RoomJoinService {
 
-    @Autowired
-    private RedisRoomManager redisRoomManager;
+    private static final Logger log = LoggerFactory.getLogger(RoomJoinServiceImpl.class);
 
-    @Autowired
-    private UserMapper userMapper;
+    private final RedisRoomManager redisRoomManager;
+    private final UserMapper userMapper;
+    private final PlayerSessionManager playerSessionManager;
 
     /**
      * 用户加入房间。
@@ -48,7 +53,15 @@ public class RoomJoinServiceImpl implements RoomJoinService {
         // 判断用户是否已在玩家集合
         Set<Object> playerIds = redisRoomManager.getRoomPlayerIds(roomId.toString());
         if (playerIds != null && playerIds.contains(userId.toString())) {
-            return Result.error("用户已经在房间中");
+            // 检查用户是否有活跃的WebSocket连接
+            if (playerSessionManager.hasActiveSession(roomId, userId)) {
+                return Result.error("用户已经在房间中");
+            } else {
+                // 用户没有活跃连接，清理旧数据后重新加入
+                log.info("用户{}在房间{}中没有活跃连接，清理旧数据后重新加入", userId, roomId);
+                redisRoomManager.removeRoomPlayer(roomId.toString(), userId.toString());
+                redisRoomManager.getRedisTemplate().delete("user:" + userId + ":currentRoom");
+            }
         }
         // 新增：判断房间人数是否已满
         if (playerIds != null && playerIds.size() >= ROOM_MAX_PLAYER) {

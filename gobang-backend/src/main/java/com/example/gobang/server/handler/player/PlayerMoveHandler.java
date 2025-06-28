@@ -8,6 +8,7 @@ import com.example.gobang.server.handler.WebSocketMessageHandler;
 import com.example.gobang.server.handler.watch.WatchSessionManager;
 import com.example.gobang.server.service.manage.room.RedisRoomManager;
 import com.example.gobang.server.service.GameArchiveService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketSession;
@@ -21,15 +22,12 @@ import java.util.HashMap;
 import java.util.Arrays;
 
 @Component
+@RequiredArgsConstructor
 public class PlayerMoveHandler implements WebSocketMessageHandler {
-    @Autowired
-    private PlayerSessionManager playerSessionManager;
-    @Autowired
-    private WatchSessionManager watchSessionManager;
-    @Autowired
-    private RedisRoomManager redisRoomManager;
-    @Autowired
-    private GameArchiveService gameArchiveService;
+    private final PlayerSessionManager playerSessionManager;
+    private final WatchSessionManager watchSessionManager;
+    private final RedisRoomManager redisRoomManager;
+    private final GameArchiveService gameArchiveService;
 
     @WSMessageHandler("move")
     public void handleMove(WebSocketSession session, JSONObject data) throws IOException {

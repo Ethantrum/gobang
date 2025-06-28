@@ -5,6 +5,7 @@ import com.example.gobang.common.result.WSResult;
 import com.example.gobang.server.handler.WSMessageHandler;
 import com.example.gobang.server.handler.WebSocketMessageHandler;
 import com.example.gobang.server.service.manage.room.RedisRoomManager;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.TextMessage;
@@ -16,9 +17,9 @@ import java.util.*;
  * 恢复对局请求处理器：基于Redis分离结构实现。
  */
 @Component
+@RequiredArgsConstructor
 public class PlayerRestoreRequestHandler implements WebSocketMessageHandler {
-    @Autowired
-    private RedisRoomManager redisRoomManager;
+    private final RedisRoomManager redisRoomManager;
 
     @WSMessageHandler("restore_request")
     public void handleRestoreRequest(WebSocketSession session, JSONObject data) {

@@ -6,6 +6,7 @@ import com.example.gobang.common.result.WSResult;
 import com.example.gobang.server.handler.WSMessageHandler;
 import com.example.gobang.server.handler.WebSocketMessageHandler;
 import com.example.gobang.server.service.manage.room.RedisRoomManager;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,12 +19,11 @@ import java.util.*;
  * 观战者加入房间，注册session，写入观战者Hash，推送身份和棋盘状态。
  */
 @Component
+@RequiredArgsConstructor
 public class WatchJoinHandler implements WebSocketMessageHandler {
     private static final Logger log = LoggerFactory.getLogger(WatchJoinHandler.class);
-    @Autowired
-    private WatchSessionManager watchSessionManager;
-    @Autowired
-    private RedisRoomManager redisRoomManager;
+    private final WatchSessionManager watchSessionManager;
+    private final RedisRoomManager redisRoomManager;
 
     @WSMessageHandler("watchJoin")
     public void handleWatchJoin(WebSocketSession session, JSONObject data) {

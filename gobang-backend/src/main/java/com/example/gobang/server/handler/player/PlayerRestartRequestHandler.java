@@ -5,6 +5,7 @@ import com.example.gobang.common.result.WSResult;
 import com.example.gobang.server.handler.WSMessageHandler;
 import com.example.gobang.server.handler.WebSocketMessageHandler;
 import com.example.gobang.server.service.manage.room.RedisRoomManager;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketSession;
@@ -15,11 +16,10 @@ import java.util.Set;
  * 只允许房间内有效玩家发起重开请求，自动校验身份并推送。
  */
 @Component
+@RequiredArgsConstructor
 public class PlayerRestartRequestHandler implements WebSocketMessageHandler {
-    @Autowired
-    private PlayerSessionManager playerSessionManager;
-    @Autowired
-    private RedisRoomManager redisRoomManager;
+    private final PlayerSessionManager playerSessionManager;
+    private final RedisRoomManager redisRoomManager;
 
     @WSMessageHandler("restart_request")
     public void handleRestartRequest(WebSocketSession session, JSONObject data) {

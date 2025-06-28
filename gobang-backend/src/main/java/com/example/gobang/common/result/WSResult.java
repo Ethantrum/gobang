@@ -11,13 +11,6 @@ public class WSResult<T> implements Serializable {
     private String type;
     private T data;
 
-    public static <T> WSResult<T> join(T object){
-        WSResult<T> wsResult = new WSResult<T>();
-        wsResult.type = "join";
-        wsResult.data = object;
-        return wsResult;
-    }
-
     public static <T> WSResult<T> start(T object){
         WSResult<T> wsResult = new WSResult<T>();
         wsResult.type = "start";
@@ -38,12 +31,7 @@ public class WSResult<T> implements Serializable {
         wsResult.data = object;
         return wsResult;
     }
-    public static <T> WSResult<T> restart(T object){
-        WSResult<T> wsResult = new WSResult<T>();
-        wsResult.type = "restart";
-        wsResult.data = object;
-        return wsResult;
-    }
+
     public static <T> WSResult<T> undo(T object){
         WSResult<T> wsResult = new WSResult<T>();
         wsResult.type = "undo";
@@ -58,12 +46,6 @@ public class WSResult<T> implements Serializable {
         return wsResult;
     }
 
-    public static <T> WSResult<T> leave(T object){
-        WSResult<T> wsResult = new WSResult<T>();
-        wsResult.type = "leave";
-        wsResult.data = object;
-        return wsResult;
-    }
     public static <T> WSResult<T> error(T object){
         WSResult<T> wsResult = new WSResult<T>();
         wsResult.type = "error";
@@ -92,12 +74,6 @@ public class WSResult<T> implements Serializable {
         return wsResult;
     }
 
-    public static WSResult<Void> restartRequest() {
-        WSResult<Void> wsResult = new WSResult<>();
-        wsResult.type = "restart_request";
-        wsResult.data = null;
-        return wsResult;
-    }
 
     public static WSResult<JSONObject> restartRequest(Long fromUserId) {
         WSResult<JSONObject> wsResult = new WSResult<>();
@@ -118,12 +94,6 @@ public class WSResult<T> implements Serializable {
         return wsResult;
     }
 
-    public static WSResult<String> master(String msg) {
-        WSResult<String> wsResult = new WSResult<>();
-        wsResult.type = "master";
-        wsResult.data = msg;
-        return wsResult;
-    }
 
     public static <T> WSResult<T> connectionError(T object){
         WSResult<T> wsResult = new WSResult<T>();

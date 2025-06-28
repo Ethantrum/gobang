@@ -7,6 +7,7 @@ import com.example.gobang.server.handler.WebSocketMessageHandler;
 import com.example.gobang.server.handler.watch.WatchSessionManager;
 import com.example.gobang.server.service.GameRestartCacheService;
 import com.example.gobang.server.service.manage.room.RedisRoomManager;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,16 +22,13 @@ import java.util.stream.Collectors;
  * 只允许房间内有效玩家同意重开，自动分配新黑白、创建新对局、推送消息。
  */
 @Component
+@RequiredArgsConstructor
 public class PlayerRestartResponseHandler implements WebSocketMessageHandler {
     private static final Logger log = LoggerFactory.getLogger(PlayerRestartResponseHandler.class);
-    @Autowired
-    private PlayerSessionManager playerSessionManager;
-    @Autowired
-    private WatchSessionManager watchSessionManager;
-    @Autowired
-    private RedisRoomManager redisRoomManager;
-    @Autowired
-    private GameRestartCacheService gameRestartCacheService;
+    private final PlayerSessionManager playerSessionManager;
+    private final WatchSessionManager watchSessionManager;
+    private final RedisRoomManager redisRoomManager;
+    private final GameRestartCacheService gameRestartCacheService;
 
     @WSMessageHandler("restart_response")
     public void handleRestartResponse(WebSocketSession session, JSONObject data) {

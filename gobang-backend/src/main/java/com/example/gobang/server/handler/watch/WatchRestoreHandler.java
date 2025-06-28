@@ -5,6 +5,7 @@ import com.example.gobang.common.result.WSResult;
 import com.example.gobang.server.handler.WSMessageHandler;
 import com.example.gobang.server.handler.watch.WatchSessionManager;
 import com.example.gobang.server.service.manage.room.RedisRoomManager;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,13 +16,12 @@ import org.springframework.web.socket.WebSocketSession;
  * 观战恢复Handler：处理观战者断线重连时的棋局恢复
  */
 @Component
+@RequiredArgsConstructor
 public class WatchRestoreHandler {
     private static final Logger log = LoggerFactory.getLogger(WatchRestoreHandler.class);
-    
-    @Autowired
-    private WatchSessionManager watchSessionManager;
-    @Autowired
-    private RedisRoomManager redisRoomManager;
+
+    private final WatchSessionManager watchSessionManager;
+    private final RedisRoomManager redisRoomManager;
 
     @WSMessageHandler("watchRestore")
     public void handleWatchRestore(WebSocketSession session, JSONObject data) {

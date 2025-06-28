@@ -5,13 +5,14 @@ import com.example.gobang.pojo.entity.User;
 import com.example.gobang.pojo.vo.user.UserInfoVO;
 import com.example.gobang.server.mapper.UserMapper;
 import com.example.gobang.server.service.user.UserInfoService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
+@RequiredArgsConstructor
 public class UserInfoServiceImpl implements UserInfoService {
-    @Autowired
-    private UserMapper userMapper;
+    private final UserMapper userMapper;
     @Override
     public Result getUserInfo(Long userId) {
         // 检查用户是否存在

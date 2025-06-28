@@ -5,6 +5,7 @@ import com.example.gobang.pojo.entity.GameRecord;
 import com.example.gobang.server.mapper.GameRecordMapper;
 import com.example.gobang.server.service.manage.room.RedisRoomManager;
 import lombok.Data;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -24,16 +25,13 @@ import java.util.Map;
  */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class GameArchiveService {
 
-    @Autowired
-    private RedisRoomManager redisRoomManager;
+    private final RedisRoomManager redisRoomManager;
+    private final GameRecordMapper gameRecordMapper;
 
-    @Autowired
-    private GameRecordMapper gameRecordMapper;
-
-    @Autowired
-    private GameRestartCacheService gameRestartCacheService;
+    private final GameRestartCacheService gameRestartCacheService;
 
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 

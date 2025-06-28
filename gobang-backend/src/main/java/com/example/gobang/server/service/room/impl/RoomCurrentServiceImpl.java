@@ -4,6 +4,7 @@ import com.example.gobang.common.result.Result;
 import com.example.gobang.pojo.vo.room.RoomCurrentRoomVO;
 import com.example.gobang.server.service.room.RoomCurrentService;
 import com.example.gobang.server.service.manage.room.RedisRoomManager;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -14,9 +15,10 @@ import java.util.Set;
  * 当前房间查询服务实现：O(1)高效查询用户当前所在房间。
  */
 @Service
+@RequiredArgsConstructor
 public class RoomCurrentServiceImpl implements RoomCurrentService {
-    @Autowired
-    private RedisRoomManager redisRoomManager;
+
+    private final RedisRoomManager redisRoomManager;
 
     /**
      * 查询用户当前所在房间。

@@ -4,6 +4,7 @@ import com.example.gobang.common.result.Result;
 import com.example.gobang.server.service.room.RoomCreateService;
 import com.example.gobang.server.mapper.UserMapper;
 import com.example.gobang.pojo.entity.User;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
@@ -18,14 +19,11 @@ import static com.example.gobang.common.constant.RoomStatusConstant.ROOM_STATUS_
  * 自动处理观战身份切换、房间属性写入、玩家集合和反向索引。
  */
 @Service
+@RequiredArgsConstructor
 public class RoomCreateServiceImpl implements RoomCreateService {
-    private final byte ROOM_STATUS_WAITING = 0;
 
-    @Autowired
-    private RedisTemplate<String, Object> redisTemplate;
-
-    @Autowired
-    private UserMapper userMapper;
+    private final RedisTemplate<String, Object> redisTemplate;
+    private final UserMapper userMapper;
 
     /**
      * 创建房间。

@@ -117,4 +117,21 @@ public class WatchSessionManager {
         }
         roomWatchSessionsMap.remove(roomId);
     }
+
+    /**
+     * 检查观战者是否有活跃的WebSocket连接
+     */
+    public synchronized boolean hasActiveSession(Long roomId, Long userId) {
+        ConcurrentHashMap<Long, Set<WebSocketSession>> userSessions = roomWatchSessionsMap.get(roomId);
+        if (userSessions == null) return false;
+        Set<WebSocketSession> sessionSet = userSessions.get(userId);
+        if (sessionSet == null || sessionSet.isEmpty()) return false;
+        // 检查是否有至少一个活跃的session
+        for (WebSocketSession session : sessionSet) {
+            if (session.isOpen()) {
+                return true;
+            }
+        }
+        return false;
+    }
 } 

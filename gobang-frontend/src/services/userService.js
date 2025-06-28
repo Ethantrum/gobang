@@ -26,10 +26,14 @@ export const userRegister = (form) => {
 export const fetchUserInfo = () => {
   const token = localStorage.getItem('token');
   const userId = localStorage.getItem('userId');
+  
+  const headers = {};
+  if (token) {
+    headers['Authorization'] = 'Bearer ' + token;
+  }
+  
   return fetch(`${API_URLS.USER_INFO}?userId=${userId}`, {
     method: 'GET',
-    headers: {
-      'Authorization': token ? 'Bearer ' + token : ''
-    }
+    headers: headers
   }).then(res => res.json());
 };

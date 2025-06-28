@@ -5,10 +5,12 @@ import com.example.gobang.common.JWT.JwtUtils;
 import com.example.gobang.common.result.Result;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
+import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
+@RequiredArgsConstructor
 public class UserLogoutController {
 
     public Result logout(@RequestHeader("Authorization") String token) {

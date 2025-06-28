@@ -2,16 +2,16 @@ package com.example.gobang.server.controller.room;
 
 import com.example.gobang.common.result.Result;
 import com.example.gobang.server.service.room.RoomSearchService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
+@RequiredArgsConstructor
 public class RoomSearchController {
-
-    @Autowired
-    private RoomSearchService roomSearchService;
+    private final RoomSearchService roomSearchService;
 
     @GetMapping("/api/room/search")
     public Result searchRoom(

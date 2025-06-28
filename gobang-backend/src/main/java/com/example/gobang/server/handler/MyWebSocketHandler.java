@@ -4,6 +4,7 @@ import com.alibaba.fastjson.JSON;
 import com.example.gobang.common.result.WSResult;
 import com.example.gobang.server.handler.player.PlayerSessionManager;
 import com.example.gobang.server.handler.watch.WatchSessionManager;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,17 +24,14 @@ import static com.example.gobang.common.constant.RoomUserRoleConstant.*;
  */
 @Component
 @Controller
+@RequiredArgsConstructor
 public class MyWebSocketHandler extends TextWebSocketHandler {
     private static final Logger log = LoggerFactory.getLogger(MyWebSocketHandler.class);
 
-    @Autowired
-    private WSDispatcher dispatcher;
-    @Autowired
-    private PlayerSessionManager playerSessionManager;
-    @Autowired
-    private WatchSessionManager watchSessionManager;
-    @Autowired
-    private RedisTemplate<String, Object> redisTemplate;
+    private final WSDispatcher dispatcher;
+    private final PlayerSessionManager playerSessionManager;
+    private final WatchSessionManager watchSessionManager;
+    private final RedisTemplate<String, Object> redisTemplate;
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {

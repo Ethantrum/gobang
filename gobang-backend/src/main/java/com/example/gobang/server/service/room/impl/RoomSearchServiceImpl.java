@@ -4,6 +4,8 @@ import com.example.gobang.common.result.Result;
 import com.example.gobang.pojo.vo.room.RoomListVO;
 import com.example.gobang.server.service.room.RoomSearchService;
 import com.example.gobang.server.service.manage.room.RedisRoomManager;
+import jdk.jfr.Enabled;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
@@ -16,11 +18,10 @@ import java.util.stream.Collectors;
  * 只统计玩家人数，分页返回结果。
  */
 @Service
+@RequiredArgsConstructor
 public class RoomSearchServiceImpl implements RoomSearchService {
-    @Autowired
-    private RedisRoomManager redisRoomManager;
-    @Autowired
-    private RedisTemplate<String, Object> redisTemplate;
+    private final RedisRoomManager redisRoomManager;
+    private final RedisTemplate<String, Object> redisTemplate;
 
     /**
      * 搜索房间。

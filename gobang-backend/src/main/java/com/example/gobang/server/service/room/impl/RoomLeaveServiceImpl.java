@@ -6,6 +6,7 @@ import com.example.gobang.server.service.room.RoomLeaveService;
 import com.example.gobang.server.service.manage.room.RedisRoomManager;
 import com.example.gobang.server.handler.player.PlayerSessionManager;
 import com.example.gobang.server.handler.watch.WatchSessionManager;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -16,15 +17,13 @@ import java.util.*;
  * 自动处理房主转让、房间解散、反向索引清理等。
  */
 @Service
+@RequiredArgsConstructor
 public class RoomLeaveServiceImpl implements RoomLeaveService {
-    @Autowired
-    private RedisRoomManager redisRoomManager;
-    
-    @Autowired
-    private PlayerSessionManager playerSessionManager;
-    
-    @Autowired
-    private WatchSessionManager watchSessionManager;
+    private final RedisRoomManager redisRoomManager;
+
+    private final PlayerSessionManager playerSessionManager;
+
+    private final WatchSessionManager watchSessionManager;
 
     /**
      * 用户离开房间或观战。

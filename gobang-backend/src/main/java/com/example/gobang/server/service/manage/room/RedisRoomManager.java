@@ -1,5 +1,6 @@
 package com.example.gobang.server.service.manage.room;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
@@ -25,9 +26,9 @@ import java.util.*;
  *      - 每个元素为Map（或JSON），包含 move_index, x, y, player, move_time
  */
 @Component
+@RequiredArgsConstructor
 public class RedisRoomManager {
-    @Autowired
-    private RedisTemplate<String, Object> redisTemplate;
+    private final RedisTemplate<String, Object> redisTemplate;
 
     // ---------------- 房间相关 ----------------
     /**
@@ -199,26 +200,6 @@ public class RedisRoomManager {
      */
     public List<Object> getGameMoves(String gameId) {
         return redisTemplate.opsForList().range("game:" + gameId + ":moves", 0, -1);
-    }
-
-    /**
-     * 清空对局落子（对应MySQL game_moves表）
-     */
-    public void clearGameMoves(String gameId) {
-        redisTemplate.delete("game:" + gameId + ":moves");
-    }
-
-    /**
-     * 获取当前最大房间ID（自增值）
-     */
-    public Long getMaxRoomId() {
-        Object maxIdObj = redisTemplate.opsForValue().get("room:id:incr");
-        if (maxIdObj == null) return 0L;
-        try {
-            return Long.parseLong(maxIdObj.toString());
-        } catch (Exception e) {
-            return 0L;
-        }
     }
 
     /**

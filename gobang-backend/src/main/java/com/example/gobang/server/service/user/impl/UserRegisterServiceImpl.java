@@ -7,15 +7,16 @@ import com.example.gobang.pojo.dto.user.UserRegisterDTO;
 import com.example.gobang.pojo.entity.User;
 import com.example.gobang.server.mapper.UserMapper;
 import com.example.gobang.server.service.user.UserRegisterService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 
 @Service
+@RequiredArgsConstructor
 public class UserRegisterServiceImpl implements UserRegisterService {
-    @Autowired
-    private UserMapper userMapper;
+    private final UserMapper userMapper;
     @Override
     public Result register(UserRegisterDTO userRegisterDTO) {
         // 1. 检查用户名是否已存在

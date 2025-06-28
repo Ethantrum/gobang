@@ -445,9 +445,9 @@ export default {
         setTimeout(() => {
           if (socket.value && socket.value.readyState === WebSocket.OPEN) {
             // 1. 先恢复棋局
-            console.log('[WS] send playerRestore', { userId: userId.value, roomId: roomId.value });
+            console.log('[WS] send player_restore', { userId: userId.value, roomId: roomId.value });
             sendWs(socket, JSON.stringify({
-              type: 'playerRestore',
+              type: 'player_restore',
               data: { userId: userId.value, roomId: roomId.value }
             }))
             // 2. 再join房间，确保后端注册session

@@ -1,6 +1,7 @@
 package com.example.gobang.server.handler.player;
 
 import com.alibaba.fastjson.JSON;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
@@ -11,7 +12,6 @@ import static com.example.gobang.common.constant.RoomStatusConstant.ROOM_STATUS_
 import static com.example.gobang.common.constant.RoomStatusConstant.ROOM_STATUS_READY;
 import static com.example.gobang.common.constant.RoomUserRoleConstant.*;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import com.alibaba.fastjson.JSONObject;
 import com.example.gobang.common.result.WSResult;
 import com.example.gobang.server.handler.watch.WatchSessionManager;
@@ -24,6 +24,7 @@ import com.example.gobang.server.service.GameArchiveService;
  * 玩家Session管理器：基于Redis分离结构实现房间、玩家、观战者、对局等管理。
  */
 @Component
+@RequiredArgsConstructor
 public class PlayerSessionManager {
     private static final Logger log = LoggerFactory.getLogger(PlayerSessionManager.class);
     // roomId -> (userId -> Set<session>)
@@ -33,11 +34,6 @@ public class PlayerSessionManager {
     private final RedisRoomManager redisRoomManager;
     private final GameArchiveService gameArchiveService;
 
-    public PlayerSessionManager(WatchSessionManager watchSessionManager, RedisRoomManager redisRoomManager, GameArchiveService gameArchiveService) {
-        this.watchSessionManager = watchSessionManager;
-        this.redisRoomManager = redisRoomManager;
-        this.gameArchiveService = gameArchiveService;
-    }
 
     /**
      * 注册玩家session，只允许一个session，多余的直接拒绝。
@@ -63,23 +59,6 @@ public class PlayerSessionManager {
         }
     }
 
-    /**
-     * 玩家彻底退出房间（无论被踢、主动离开、断线等）
-     */
-    public synchronized void playerQuitRoom(Long roomId, Long userId) {
-        // 关闭所有该玩家的session
-        ConcurrentHashMap<Long, Set<WebSocketSession>> userSessions = roomUserSessionsMap.get(roomId);
-        if (userSessions != null) {
-            Set<WebSocketSession> sessionSet = userSessions.get(userId);
-            if (sessionSet != null) {
-                for (WebSocketSession session : new HashSet<>(sessionSet)) {
-                    try { session.close(); } catch (IOException ignored) {}
-                }
-            }
-        }
-        // 统一清理
-        removePlayerSessionById(roomId, userId);
-    }
 
     /**
      * 通过roomId和userId移除玩家，包含所有redis和本地清理、房主转让、房间状态等
@@ -300,6 +279,23 @@ public class PlayerSessionManager {
             }
         }
         roomUserSessionsMap.remove(roomId);
+    }
+
+    /**
+     * 检查用户是否有活跃的WebSocket连接
+     */
+    public synchronized boolean hasActiveSession(Long roomId, Long userId) {
+        ConcurrentHashMap<Long, Set<WebSocketSession>> userSessions = roomUserSessionsMap.get(roomId);
+        if (userSessions == null) return false;
+        Set<WebSocketSession> sessionSet = userSessions.get(userId);
+        if (sessionSet == null || sessionSet.isEmpty()) return false;
+        // 检查是否有至少一个活跃的session
+        for (WebSocketSession session : sessionSet) {
+            if (session.isOpen()) {
+                return true;
+            }
+        }
+        return false;
     }
 
 } 

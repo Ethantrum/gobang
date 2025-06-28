@@ -1,6 +1,7 @@
 package com.example.gobang.server.service;
 
 import com.example.gobang.server.service.manage.room.RedisRoomManager;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -14,10 +15,10 @@ import java.util.Map;
  */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class GameRestartCacheService {
 
-    @Autowired
-    private RedisRoomManager redisRoomManager;
+    private final RedisRoomManager redisRoomManager;
 
     /**
      * 缓存上一局玩家信息
