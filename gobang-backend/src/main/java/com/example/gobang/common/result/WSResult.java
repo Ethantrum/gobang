@@ -87,10 +87,13 @@ public class WSResult<T> implements Serializable {
         return wsResult;
     }
 
-    public static WSResult<Boolean> restartResponse(boolean agree) {
-        WSResult<Boolean> wsResult = new WSResult<>();
+    public static WSResult<JSONObject> restartResponse(boolean agree, Long fromUserId) {
+        WSResult<JSONObject> wsResult = new WSResult<>();
         wsResult.type = "restart_response";
-        wsResult.data = agree;
+        JSONObject obj = new JSONObject();
+        obj.put("agree", agree);
+        obj.put("fromUserId", fromUserId);
+        wsResult.data = obj;
         return wsResult;
     }
 

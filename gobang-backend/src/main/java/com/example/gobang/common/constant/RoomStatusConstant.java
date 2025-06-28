@@ -4,5 +4,6 @@ public class RoomStatusConstant {
     public static final byte ROOM_STATUS_READY = 0;
     public static final byte ROOM_STATUS_FULL = 1;
     public static final byte ROOM_STATUS_END = 2;
+    public static final int ROOM_MAX_PLAYER = 2; // 房间最大玩家数
 
 }

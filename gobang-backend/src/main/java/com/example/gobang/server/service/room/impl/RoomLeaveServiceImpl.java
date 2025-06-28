@@ -1,58 +1,64 @@
 package com.example.gobang.server.service.room.impl;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.example.gobang.common.result.Result;
 import com.example.gobang.pojo.dto.room.RoomLeaveDTO;
-import com.example.gobang.pojo.entity.Room;
-import com.example.gobang.pojo.entity.RoomUser;
-import com.example.gobang.server.mapper.RoomMapper;
-import com.example.gobang.server.mapper.RoomUserMapper;
 import com.example.gobang.server.service.room.RoomLeaveService;
+import com.example.gobang.server.service.manage.room.RedisRoomManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import java.util.*;
 
+/**
+ * 房间离开服务实现：处理用户离开房间或观战的业务逻辑。
+ * 自动处理房主转让、房间解散、反向索引清理等。
+ */
 @Service
 public class RoomLeaveServiceImpl implements RoomLeaveService {
     @Autowired
-    private RoomMapper roomMapper;
-    @Autowired
-    private RoomUserMapper roomUserMapper;
+    private RedisRoomManager redisRoomManager;
 
-    @Transactional(rollbackFor = Exception.class)
+    /**
+     * 用户离开房间或观战。
+     * @param roomLeaveDTO 离开请求参数，包含roomId和userId
+     * @return 离开结果，成功返回提示，失败返回错误信息
+     */
     @Override
     public Result roomLeave(RoomLeaveDTO roomLeaveDTO) {
-        LambdaQueryWrapper<RoomUser> roomUserQueryWrapper = new LambdaQueryWrapper<>();
-        roomUserQueryWrapper.eq(RoomUser::getRoomId, roomLeaveDTO.getRoomId());
-        roomUserQueryWrapper.eq(RoomUser::getUserId, roomLeaveDTO.getUserId());
-        RoomUser roomUser = roomUserMapper.selectOne(roomUserQueryWrapper);
-        if (roomUser == null) {
+        // --- Redis实现 ---
+        String roomId = roomLeaveDTO.getRoomId().toString();
+        String userId = roomLeaveDTO.getUserId().toString();
+        Map<Object, Object> roomInfo = redisRoomManager.getRoomInfo(roomId);
+        if (roomInfo == null || roomInfo.isEmpty()) {
             return Result.success("退出房间成功");
         }
-        LambdaQueryWrapper<Room> roomQueryWrapper = new LambdaQueryWrapper<>();
-        roomQueryWrapper.eq(Room::getRoomId, roomLeaveDTO.getRoomId());
-        Room room = roomMapper.selectOne(roomQueryWrapper);
-        if (room == null) {
+        Set<Object> playerIds = redisRoomManager.getRoomPlayerIds(roomId);
+        Set<Object> watcherIds = redisRoomManager.getRoomWatcherIds(roomId);
+        if ((playerIds == null || !playerIds.contains(userId)) && (watcherIds == null || !watcherIds.contains(userId))) {
             return Result.success("退出房间成功");
         }
-        if (room.getOwnerId().equals(roomLeaveDTO.getUserId())) {
-            List<RoomUser> leftUsers = roomUserMapper.selectList(
-                new LambdaQueryWrapper<RoomUser>()
-                    .eq(RoomUser::getRoomId, room.getRoomId())
-                    .ne(RoomUser::getUserId, roomLeaveDTO.getUserId())
-                    .orderByAsc(RoomUser::getJoinTime)
-            );
-            if (!leftUsers.isEmpty()) {
-                RoomUser newOwner = leftUsers.get(0);
-                room.setOwnerId(newOwner.getUserId());
-                roomMapper.updateById(room);
-            } else {
-                roomMapper.deleteById(room.getRoomId());
+        // 判断身份
+        if (playerIds != null && playerIds.contains(userId)) {
+            Object ownerIdObj = roomInfo.get("owner_id");
+            if (ownerIdObj != null && ownerIdObj.toString().equals(userId)) {
+                // 当前用户是房主，转移房主或解散房间
+                List<Object> leftUsers = new ArrayList<>(playerIds);
+                leftUsers.remove(userId);
+                if (!leftUsers.isEmpty()) {
+                    String newOwnerId = leftUsers.get(0).toString();
+                    roomInfo.put("owner_id", newOwnerId);
+                    redisRoomManager.createRoom(roomId, (Map) roomInfo); // 更新房主
+                } else {
+                    redisRoomManager.deleteRoom(roomId);
+                    return Result.success("退出房间成功");
+                }
             }
+            redisRoomManager.removeRoomPlayer(roomId, userId);
+            redisRoomManager.getRedisTemplate().delete("user:" + userId + ":currentRoom");
+        } else if (watcherIds != null && watcherIds.contains(userId)) {
+            redisRoomManager.removeRoomWatcher(roomId, userId);
+            redisRoomManager.getRedisTemplate().delete("user:" + userId + ":currentWatchRoom");
         }
-        roomUserMapper.deleteById(roomUser);
         return Result.success("退出房间成功");
     }
 } 

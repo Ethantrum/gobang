@@ -2,31 +2,30 @@ package com.example.gobang.server.handler.player;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.example.gobang.common.result.WSResult;
-import com.example.gobang.pojo.entity.*;
 import com.example.gobang.server.handler.WSMessageHandler;
 import com.example.gobang.server.handler.WebSocketMessageHandler;
-import com.example.gobang.server.mapper.GameRecordMapper;
-import com.example.gobang.server.mapper.GameMovesMapper;
 import com.example.gobang.server.handler.watch.WatchSessionManager;
+import com.example.gobang.server.service.manage.room.RedisRoomManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.TextMessage;
 import java.io.IOException;
-import java.util.List;
+import java.util.*;
 
+/**
+ * 悔棋处理器：基于Redis分离结构实现。
+ * 只允许当前对局玩家悔棋，撤销最后一步落子，自动同步棋盘。
+ */
 @Component
 public class UndoHandler implements WebSocketMessageHandler {
     @Autowired
     private PlayerSessionManager playerSessionManager;
     @Autowired
-    private GameRecordMapper gameRecordMapper;
-    @Autowired
-    private GameMovesMapper gameMovesMapper;
-    @Autowired
     private WatchSessionManager watchSessionManager;
+    @Autowired
+    private RedisRoomManager redisRoomManager;
 
     @WSMessageHandler("undo")
     public void handleUndo(WebSocketSession session, JSONObject data) {
@@ -35,47 +34,71 @@ public class UndoHandler implements WebSocketMessageHandler {
         if (userId == null || roomId == null) {
             return;
         }
-        GameRecord record = gameRecordMapper.selectOne(
-            new QueryWrapper<GameRecord>()
-                .eq("room_id", roomId)
-                .isNull("end_time")
-                .orderByDesc("start_time")
-                .last("limit 1")
-        );
-        if (record == null) {
-            try {
-                session.sendMessage(new TextMessage(JSON.toJSONString(WSResult.error("未找到当前房间的进行中对局，无法悔棋"))));
-            } catch (IOException e) {
-                e.printStackTrace();
+        // 1. 查找未结束的对局
+        Long foundGameId = null;
+        Map<Object, Object> record = null;
+        long maxGameId = 0L;
+        Object maxGameIdObj = redisRoomManager.getRedisTemplate().opsForValue().get("game:id:incr");
+        if (maxGameIdObj != null) {
+            try { maxGameId = Long.parseLong(maxGameIdObj.toString()); } catch (Exception ignored) {}
+        }
+        for (long gid = maxGameId; gid >= 1; gid--) {
+            Map<Object, Object> game = redisRoomManager.getGameRecord(String.valueOf(gid));
+            if (game == null || game.isEmpty()) continue;
+            Object roomIdObj2 = game.get("room_id");
+            Object endTimeObj = game.get("end_time");
+            if (roomIdObj2 != null && roomIdObj2.toString().equals(roomId.toString()) && (endTimeObj == null || endTimeObj.toString().isEmpty())) {
+                foundGameId = gid;
+                record = game;
+                break;
             }
+        }
+        if (record == null) {
+            sendError(session, "未找到当前房间的进行中对局，无法悔棋");
             return;
         }
-        if (!userId.equals(record.getBlackId()) && !userId.equals(record.getWhiteId())) {
-            try {
-                session.sendMessage(new TextMessage(JSON.toJSONString(WSResult.error("您不是本局玩家，无法操作棋盘"))));
-            } catch (IOException ignored) {}
+        // 2. 只允许对局双方悔棋
+        Long blackId = record.get("black_id") == null ? null : Long.valueOf(record.get("black_id").toString());
+        Long whiteId = record.get("white_id") == null ? null : Long.valueOf(record.get("white_id").toString());
+        if (!userId.equals(blackId) && !userId.equals(whiteId)) {
+            sendError(session, "您不是本局玩家，无法操作棋盘");
             return;
         }
-        Long gameId = record.getId();
-        List<GameMoves> moves = gameMovesMapper.selectList(
-                new QueryWrapper<GameMoves>().eq("game_id", gameId)
-                        .orderByDesc("id").last("limit 1"));
-        if (!moves.isEmpty()) {
-            gameMovesMapper.deleteById(moves.get(0).getId());
+        // 3. 撤销最后一步落子
+        List<Object> allMoves = redisRoomManager.getGameMoves(foundGameId.toString());
+        if (allMoves == null || allMoves.isEmpty()) {
+            sendError(session, "当前无可撤销的落子");
+            return;
         }
-        List<GameMoves> allMoves = gameMovesMapper.selectList(
-                new QueryWrapper<GameMoves>().eq("game_id", gameId));
-        int[][] board = buildBoardFromMoves(allMoves);
+        redisRoomManager.getRedisTemplate().opsForList().rightPop("game:" + foundGameId + ":moves");
+        // 4. 重建棋盘并广播
+        List<Object> movesAfter = redisRoomManager.getGameMoves(foundGameId.toString());
+        int[][] board = buildBoardFromMoves(movesAfter);
         JSONObject resp = new JSONObject();
         resp.put("board", board);
         playerSessionManager.broadcastToRoom(roomId, WSResult.undo(resp));
         watchSessionManager.broadcastToRoom(roomId, WSResult.undo(resp));
     }
 
-    private int[][] buildBoardFromMoves(List<GameMoves> moves) {
+    private void sendError(WebSocketSession session, String msg) {
+        try {
+            session.sendMessage(new TextMessage(JSON.toJSONString(WSResult.error(msg))));
+        } catch (IOException ignored) {}
+    }
+
+    private int[][] buildBoardFromMoves(List<Object> moves) {
         int[][] board = new int[15][15];
-        for (GameMoves move : moves) {
-            board[move.getX()][move.getY()] = move.getPlayer();
+        if (moves == null) return board;
+        for (Object m : moves) {
+            if (m instanceof Map) {
+                Map mm = (Map) m;
+                Object x = mm.get("x");
+                Object y = mm.get("y");
+                Object player = mm.get("player");
+                if (x != null && y != null && player != null) {
+                    board[Integer.parseInt(x.toString())][Integer.parseInt(y.toString())] = Integer.parseInt(player.toString());
+                }
+            }
         }
         return board;
     }

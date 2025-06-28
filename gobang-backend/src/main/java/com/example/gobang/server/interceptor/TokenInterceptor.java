@@ -38,8 +38,8 @@ public class TokenInterceptor implements HandlerInterceptor {
         try {
             String realToken = token.substring(7);// 去掉 "Bearer " 前缀
             Jwts.parser()
-                .setSigningKey(jwtSecret)
-                .parseClaimsJws(realToken);
+                    .setSigningKey(jwtSecret)
+                    .parseClaimsJws(realToken);
             return true;
         } catch (Exception e) {
             response.setContentType("application/json;charset=UTF-8");

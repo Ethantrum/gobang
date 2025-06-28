@@ -2,38 +2,28 @@ package com.example.gobang.server.handler.watch;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.example.gobang.common.result.WSResult;
-import com.example.gobang.pojo.entity.*;
 import com.example.gobang.server.handler.WSMessageHandler;
 import com.example.gobang.server.handler.WebSocketMessageHandler;
-import com.example.gobang.server.mapper.RoomMapper;
-import com.example.gobang.server.mapper.RoomUserMapper;
-import com.example.gobang.server.mapper.UserMapper;
-import com.example.gobang.server.mapper.GameRecordMapper;
-import com.example.gobang.server.mapper.GameMovesMapper;
+import com.example.gobang.server.service.manage.room.RedisRoomManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketSession;
-import java.util.List;
+import java.util.*;
 
+/**
+ * 观战加入处理器：基于Redis分离结构实现。
+ * 观战者加入房间，注册session，写入观战者Hash，推送身份和棋盘状态。
+ */
 @Component
 public class WatchJoinHandler implements WebSocketMessageHandler {
     private static final Logger log = LoggerFactory.getLogger(WatchJoinHandler.class);
     @Autowired
     private WatchSessionManager watchSessionManager;
     @Autowired
-    private RoomMapper roomMapper;
-    @Autowired
-    private RoomUserMapper roomUserMapper;
-    @Autowired
-    private UserMapper userMapper;
-    @Autowired
-    private GameRecordMapper gameRecordMapper;
-    @Autowired
-    private GameMovesMapper gameMovesMapper;
+    private RedisRoomManager redisRoomManager;
 
     @WSMessageHandler("watchJoin")
     public void handleWatchJoin(WebSocketSession session, JSONObject data) {
@@ -43,10 +33,16 @@ public class WatchJoinHandler implements WebSocketMessageHandler {
         if (roomId == null || userId == null) {
             return;
         }
-        // 只注册观战session，不动数据库role
+        // 1. 注册观战session
         watchSessionManager.registerWatchSession(roomId, userId, session);
-
-        // 1. 推送观战身份
+        // 2. 写入观战者Hash，含nickname
+        Map<Object, Object> userInfo = redisRoomManager.getRedisTemplate().opsForHash().entries("user:" + userId);
+        Map<String, Object> watcherInfo = new HashMap<>();
+        watcherInfo.put("role", com.example.gobang.common.constant.RoomUserRoleConstant.ROLE_WATCH);
+        watcherInfo.put("join_time", System.currentTimeMillis());
+        watcherInfo.put("nickname", userInfo.getOrDefault("nickname", ""));
+        redisRoomManager.addRoomWatcher(roomId.toString(), userId.toString(), watcherInfo);
+        // 3. 推送观战身份
         JSONObject watchMsg = new JSONObject();
         watchMsg.put("isWatcher", true);
         JSONObject msg = new JSONObject();
@@ -54,18 +50,45 @@ public class WatchJoinHandler implements WebSocketMessageHandler {
         msg.put("data", watchMsg);
         log.info("[观战] 推送身份消息: {}", msg);
         watchSessionManager.sendToUser(roomId, userId, msg);
-        // 2. 推送棋盘最新状态（用move类型）
-        GameRecord record = gameRecordMapper.selectOne(
-            new QueryWrapper<GameRecord>().eq("room_id", roomId).isNull("end_time").orderByDesc("start_time").last("limit 1")
-        );
+        // 4. 推送棋盘最新状态（move类型）
+        // 查找未结束的GameRecord（room_id匹配且end_time为空，start_time最大）
+        Long foundGameId = null;
+        Map<Object, Object> record = null;
+        long maxGameId = 0L;
+        Object maxGameIdObj = redisRoomManager.getRedisTemplate().opsForValue().get("game:id:incr");
+        if (maxGameIdObj != null) {
+            try { maxGameId = Long.parseLong(maxGameIdObj.toString()); } catch (Exception ignored) {}
+        }
+        long latestStartTime = -1;
+        for (long gid = 1; gid <= maxGameId; gid++) {
+            Map<Object, Object> game = redisRoomManager.getGameRecord(String.valueOf(gid));
+            if (game == null || game.isEmpty()) continue;
+            Object roomIdObj2 = game.get("room_id");
+            Object endTimeObj = game.get("end_time");
+            Object startTimeObj = game.get("start_time");
+            if (roomIdObj2 != null && roomIdObj2.toString().equals(roomId.toString()) && (endTimeObj == null || endTimeObj.toString().isEmpty())) {
+                long st = startTimeObj == null ? 0 : Long.parseLong(startTimeObj.toString());
+                if (st > latestStartTime) {
+                    foundGameId = gid;
+                    record = game;
+                    latestStartTime = st;
+                }
+            }
+        }
         int[][] board = new int[15][15];
         int nextPlayer = 1;
         if (record != null) {
-            List<GameMoves> moves = gameMovesMapper.selectList(
-                new QueryWrapper<GameMoves>().eq("game_id", record.getId()).orderByAsc("move_index")
-            );
-            for (GameMoves move : moves) {
-                board[move.getX()][move.getY()] = move.getPlayer();
+            List<Object> moves = redisRoomManager.getGameMoves(foundGameId.toString());
+            for (Object moveObj : moves) {
+                if (moveObj instanceof Map) {
+                    Map mm = (Map) moveObj;
+                    Object mx = mm.get("x");
+                    Object my = mm.get("y");
+                    Object player = mm.get("player");
+                    if (mx != null && my != null && player != null) {
+                        board[Integer.parseInt(mx.toString())][Integer.parseInt(my.toString())] = Integer.parseInt(player.toString());
+                    }
+                }
             }
             nextPlayer = (moves.size() % 2 == 0) ? 1 : 2;
         }
@@ -73,6 +96,6 @@ public class WatchJoinHandler implements WebSocketMessageHandler {
         moveMsg.put("board", board);
         moveMsg.put("nextPlayer", nextPlayer);
         log.info("[观战] 推送棋盘消息: {}", moveMsg);
-        watchSessionManager.sendToUser(roomId, userId, com.example.gobang.common.result.WSResult.move(moveMsg));
+        watchSessionManager.sendToUser(roomId, userId, WSResult.move(moveMsg));
     }
 } 

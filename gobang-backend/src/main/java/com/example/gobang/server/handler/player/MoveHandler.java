@@ -8,9 +8,7 @@ import com.example.gobang.pojo.entity.*;
 import com.example.gobang.server.handler.WSMessageHandler;
 import com.example.gobang.server.handler.WebSocketMessageHandler;
 import com.example.gobang.server.handler.watch.WatchSessionManager;
-import com.example.gobang.server.mapper.GameRecordMapper;
-import com.example.gobang.server.mapper.GameMovesMapper;
-import com.example.gobang.server.mapper.RoomMapper;
+import com.example.gobang.server.service.manage.room.RedisRoomManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketSession;
@@ -19,19 +17,18 @@ import java.io.IOException;
 import java.util.List;
 import java.awt.Point;
 import java.util.ArrayList;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Arrays;
 
 @Component
 public class MoveHandler implements WebSocketMessageHandler {
     @Autowired
     private PlayerSessionManager playerSessionManager;
     @Autowired
-    private RoomMapper roomMapper;
-    @Autowired
-    private GameRecordMapper gameRecordMapper;
-    @Autowired
-    private GameMovesMapper gameMovesMapper;
-    @Autowired
     private WatchSessionManager watchSessionManager;
+    @Autowired
+    private RedisRoomManager redisRoomManager;
 
     @WSMessageHandler("move")
     public void handleMove(WebSocketSession session, JSONObject data) throws IOException {
@@ -42,20 +39,46 @@ public class MoveHandler implements WebSocketMessageHandler {
         }
         Integer x = data.getInteger("x");
         Integer y = data.getInteger("y");
-        GameRecord record = gameRecordMapper.selectOne(
-            new QueryWrapper<GameRecord>().eq("room_id", roomId).isNull("end_time")
-        );
+        // --- Redis实现 ---
+        // 1. 查找未结束的对局
+        Long foundGameId = null;
+        Map<Object, Object> record = null;
+        long maxGameId = 0L;
+        Object maxGameIdObj = redisRoomManager.getRedisTemplate().opsForValue().get("game:id:incr");
+        if (maxGameIdObj != null) {
+            try { maxGameId = Long.parseLong(maxGameIdObj.toString()); } catch (Exception ignored) {}
+        }
+        for (long gid = 1; gid <= maxGameId; gid++) {
+            Map<Object, Object> game = redisRoomManager.getGameRecord(String.valueOf(gid));
+            if (game == null || game.isEmpty()) continue;
+            Object roomIdObj2 = game.get("room_id");
+            Object endTimeObj = game.get("end_time");
+            if (roomIdObj2 != null && roomIdObj2.toString().equals(roomId.toString()) && (endTimeObj == null || endTimeObj.toString().isEmpty())) {
+                foundGameId = gid;
+                record = game;
+                break;
+            }
+        }
         if (record == null) {
             session.sendMessage(new TextMessage(JSON.toJSONString(WSResult.error("对局不存在或已结束"))));
             return;
         }
-        if (gameMovesMapper.selectCount(new QueryWrapper<GameMoves>().eq("game_id", record.getId()).eq("x", x).eq("y", y)) > 0) {
-            session.sendMessage(new TextMessage(JSON.toJSONString(WSResult.error("此处已有棋子"))));
-            return;
+        // 2. 检查该位置是否已有棋子
+        List<Object> allMoves = redisRoomManager.getGameMoves(foundGameId.toString());
+        for (Object moveObj : allMoves) {
+            if (moveObj instanceof Map) {
+                Map move = (Map) moveObj;
+                Object mx = move.get("x");
+                Object my = move.get("y");
+                if (mx != null && my != null && mx.toString().equals(x.toString()) && my.toString().equals(y.toString())) {
+                    session.sendMessage(new TextMessage(JSON.toJSONString(WSResult.error("此处已有棋子"))));
+                    return;
+                }
+            }
         }
-        long moveCount = gameMovesMapper.selectCount(new QueryWrapper<GameMoves>().eq("game_id", record.getId()));
-        final Long blackId = record.getBlackId();
-        final Long whiteId = record.getWhiteId();
+        long moveCount = allMoves.size();
+        final Long blackId = record.get("black_id") == null ? null : Long.valueOf(record.get("black_id").toString());
+        final Long whiteId = record.get("white_id") == null ? null : Long.valueOf(record.get("white_id").toString());
         boolean isBlackTurn = moveCount % 2 == 0;
         Integer player;
         if (isBlackTurn && userId.equals(blackId)) {
@@ -66,27 +89,53 @@ public class MoveHandler implements WebSocketMessageHandler {
             session.sendMessage(new TextMessage(JSON.toJSONString(WSResult.error("不是您的回合"))));
             return;
         }
-        GameMoves move = GameMoves.builder()
-                .gameId(record.getId())
-                .moveIndex((int)moveCount + 1)
-                .x(x).y(y).player(player).build();
-        gameMovesMapper.insert(move);
-        List<GameMoves> allMoves = gameMovesMapper.selectList(new QueryWrapper<GameMoves>().eq("game_id", record.getId()));
-        int[][] board = buildBoardFromMoves(allMoves);
+        // 3. 落子
+        Map<String, Object> move = new java.util.HashMap<>();
+        move.put("game_id", foundGameId);
+        move.put("move_index", (int)moveCount + 1);
+        move.put("x", x);
+        move.put("y", y);
+        move.put("player", player);
+        move.put("move_time", System.currentTimeMillis());
+        redisRoomManager.addGameMove(foundGameId.toString(), move);
+        // 4. 构建棋盘
+        List<Object> allMovesAfter = redisRoomManager.getGameMoves(foundGameId.toString());
+        List<GameMoves> movesList = new ArrayList<>();
+        for (Object m : allMovesAfter) {
+            if (m instanceof Map) {
+                Map mm = (Map) m;
+                GameMoves gm = GameMoves.builder()
+                        .gameId(foundGameId)
+                        .moveIndex(mm.get("move_index") == null ? 0 : Integer.parseInt(mm.get("move_index").toString()))
+                        .x(mm.get("x") == null ? 0 : Integer.parseInt(mm.get("x").toString()))
+                        .y(mm.get("y") == null ? 0 : Integer.parseInt(mm.get("y").toString()))
+                        .player(mm.get("player") == null ? 0 : Integer.parseInt(mm.get("player").toString()))
+                        .build();
+                movesList.add(gm);
+            }
+        }
+        int[][] board = buildBoardFromMoves(movesList);
         WinResult winResult = checkWin(board, x, y, player);
         if (winResult.isWin()) {
-            record.setEndTime(java.time.LocalDateTime.now());
-            record.setWinner(userId);
-            gameRecordMapper.updateById(record);
-            Room room = roomMapper.selectById(roomId);
-            if (room != null) {
-                room.setStatus(com.example.gobang.common.constant.RoomStatusConstant.ROOM_STATUS_END);
-                roomMapper.updateById(room);
+            record.put("end_time", String.valueOf(System.currentTimeMillis()));
+            record.put("winner", userId);
+            redisRoomManager.createGameRecord(foundGameId.toString(), convertToStringObjectMap(record));
+            Map<Object, Object> roomInfo = redisRoomManager.getRoomInfo(roomId.toString());
+            if (roomInfo != null) {
+                roomInfo.put("status", com.example.gobang.common.constant.RoomStatusConstant.ROOM_STATUS_END);
+                redisRoomManager.createRoom(roomId.toString(), convertToStringObjectMap(roomInfo));
             }
             JSONObject resultData = new JSONObject();
             resultData.put("winner", userId);
             resultData.put("board", board);
-            resultData.put("winningLine", winResult.getWinningLine());
+            List<Point> rawLine = winResult.getWinningLine();
+            List<List<Integer>> line = new ArrayList<>();
+            if (rawLine != null) {
+                for (Point p : rawLine) {
+                    line.add(Arrays.asList(p.x, p.y));
+                }
+            }
+            resultData.put("winningLine", line);
             playerSessionManager.broadcastToRoom(roomId, WSResult.result(resultData));
             watchSessionManager.broadcastToRoom(roomId, WSResult.result(resultData));
             return;
@@ -149,5 +198,13 @@ public class MoveHandler implements WebSocketMessageHandler {
         }
         public boolean isWin() { return isWin; }
         public List<Point> getWinningLine() { return winningLine; }
+    }
+
+    private static Map<String, Object> convertToStringObjectMap(Map<Object, Object> map) {
+        Map<String, Object> result = new HashMap<>();
+        for (Map.Entry<Object, Object> entry : map.entrySet()) {
+            result.put(entry.getKey().toString(), entry.getValue());
+        }
+        return result;
     }
 } 

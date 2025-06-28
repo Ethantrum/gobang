@@ -1,35 +1,27 @@
 package com.example.gobang.server.handler.player;
 
 import com.alibaba.fastjson.JSONObject;
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.example.gobang.common.constant.RoomUserRoleConstant;
 import com.example.gobang.common.result.WSResult;
-import com.example.gobang.pojo.entity.*;
+import com.example.gobang.pojo.entity.GameMoves;
 import com.example.gobang.server.handler.WSMessageHandler;
 import com.example.gobang.server.handler.WebSocketMessageHandler;
-import com.example.gobang.server.mapper.GameMovesMapper;
-import com.example.gobang.server.mapper.GameRecordMapper;
-import com.example.gobang.server.mapper.RoomUserMapper;
-import com.example.gobang.server.mapper.UserMapper;
+import com.example.gobang.server.service.manage.room.RedisRoomManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * 恢复对局请求处理器：基于Redis分离结构实现。
+ */
 @Component
 public class RestoreRequestHandler implements WebSocketMessageHandler {
     @Autowired
-    private GameRecordMapper gameRecordMapper;
-    @Autowired
-    private GameMovesMapper gameMovesMapper;
-    @Autowired
-    private RoomUserMapper roomUserMapper;
-    @Autowired
-    private UserMapper userMapper;
+    private RedisRoomManager redisRoomManager;
 
     @WSMessageHandler("restore_request")
     public void handleRestoreRequest(WebSocketSession session, JSONObject data) {
@@ -37,60 +29,92 @@ public class RestoreRequestHandler implements WebSocketMessageHandler {
         Long roomId = (Long) session.getAttributes().get("roomId");
         if (userId == null || roomId == null) return;
 
-        // 查询当前未结束的GameRecord
-        GameRecord record = gameRecordMapper.selectOne(
-                new QueryWrapper<GameRecord>()
-                        .eq("room_id", roomId)
-                        .isNull("end_time")
-                        .orderByDesc("start_time")
-                        .last("limit 1")
-        );
-        if (record == null) return;
-
-        // 查询所有落子
-        List<GameMoves> allMoves = gameMovesMapper.selectList(
-                new QueryWrapper<GameMoves>().eq("game_id", record.getId())
-        );
-        int[][] board = buildBoardFromMoves(allMoves);
-
-        // 查询房间所有成员
-        List<RoomUser> allRoomUsers = roomUserMapper.selectList(
-                new QueryWrapper<RoomUser>().eq("room_id", roomId)
-        );
-        Map<Long, Byte> userRoleMap = allRoomUsers.stream().collect(Collectors.toMap(RoomUser::getUserId, RoomUser::getRole));
-        // 查询所有用户信息
-        List<Long> allUserIds = allRoomUsers.stream().map(RoomUser::getUserId).collect(Collectors.toList());
-        List<User> users = allUserIds.isEmpty() ? List.of() : userMapper.selectBatchIds(allUserIds);
-
-        // 组装players信息
-        List<JSONObject> playerList = users.stream().map(u -> {
-            JSONObject ju = new JSONObject();
-            ju.put("userId", u.getUserId());
-            ju.put("nickname", u.getNickname());
-            ju.put("isBlack", u.getUserId().equals(record.getBlackId()));
-            ju.put("isWhite", u.getUserId().equals(record.getWhiteId()));
-            Byte role = userRoleMap.get(u.getUserId());
-            ju.put("isWatcher", role != null && role.equals(RoomUserRoleConstant.ROLE_WATCH));
-            return ju;
-        }).collect(Collectors.toList());
-
-        // 计算当前回合
-        int nextPlayer = 1;
-        if (allMoves != null && !allMoves.isEmpty()) {
-            nextPlayer = allMoves.get(allMoves.size() - 1).getPlayer() == 1 ? 2 : 1;
+        // 1. 查找未结束的GameRecord（room_id匹配且end_time为空，start_time最大）
+        Long foundGameId = null;
+        Map<Object, Object> record = null;
+        long maxGameId = 0L;
+        Object maxGameIdObj = redisRoomManager.getRedisTemplate().opsForValue().get("game:id:incr");
+        if (maxGameIdObj != null) {
+            try { maxGameId = Long.parseLong(maxGameIdObj.toString()); } catch (Exception ignored) {}
         }
-
-        // 组装恢复数据
+        long latestStartTime = -1;
+        for (long gid = 1; gid <= maxGameId; gid++) {
+            Map<Object, Object> game = redisRoomManager.getGameRecord(String.valueOf(gid));
+            if (game == null || game.isEmpty()) continue;
+            Object roomIdObj2 = game.get("room_id");
+            Object endTimeObj = game.get("end_time");
+            Object startTimeObj = game.get("start_time");
+            if (roomIdObj2 != null && roomIdObj2.toString().equals(roomId.toString()) && (endTimeObj == null || endTimeObj.toString().isEmpty())) {
+                long st = startTimeObj == null ? 0 : Long.parseLong(startTimeObj.toString());
+                if (st > latestStartTime) {
+                    foundGameId = gid;
+                    record = game;
+                    latestStartTime = st;
+                }
+            }
+        }
+        if (record == null) return;
+        // 2. 查询所有落子
+        List<Object> allMoves = redisRoomManager.getGameMoves(foundGameId.toString());
+        List<GameMoves> movesList = new ArrayList<>();
+        for (Object m : allMoves) {
+            if (m instanceof Map) {
+                Map mm = (Map) m;
+                GameMoves gm = GameMoves.builder()
+                        .gameId(foundGameId)
+                        .moveIndex(mm.get("move_index") == null ? 0 : Integer.parseInt(mm.get("move_index").toString()))
+                        .x(mm.get("x") == null ? 0 : Integer.parseInt(mm.get("x").toString()))
+                        .y(mm.get("y") == null ? 0 : Integer.parseInt(mm.get("y").toString()))
+                        .player(mm.get("player") == null ? 0 : Integer.parseInt(mm.get("player").toString()))
+                        .build();
+                movesList.add(gm);
+            }
+        }
+        int[][] board = buildBoardFromMoves(movesList);
+        // 3. 查询房间所有玩家和观战者
+        Set<Object> playerIds = redisRoomManager.getRoomPlayerIds(roomId.toString());
+        Set<Object> watcherIds = redisRoomManager.getRoomWatcherIds(roomId.toString());
+        // 4. 构造players信息，补充nickname和角色
+        List<JSONObject> playerList = new ArrayList<>();
+        if (playerIds != null) {
+            for (Object uid : playerIds) {
+                JSONObject ju = new JSONObject();
+                ju.put("userId", uid);
+                Map<Object, Object> userInfo = redisRoomManager.getRedisTemplate().opsForHash().entries("user:" + uid);
+                ju.put("nickname", userInfo.getOrDefault("nickname", ""));
+                Object blackId = record.get("black_id");
+                Object whiteId = record.get("white_id");
+                ju.put("isBlack", blackId != null && uid.toString().equals(blackId.toString()));
+                ju.put("isWhite", whiteId != null && uid.toString().equals(whiteId.toString()));
+                ju.put("isWatcher", false);
+                playerList.add(ju);
+            }
+        }
+        if (watcherIds != null) {
+            for (Object uid : watcherIds) {
+                JSONObject ju = new JSONObject();
+                ju.put("userId", uid);
+                Map<Object, Object> userInfo = redisRoomManager.getRedisTemplate().opsForHash().entries("user:" + uid);
+                ju.put("nickname", userInfo.getOrDefault("nickname", ""));
+                ju.put("isBlack", false);
+                ju.put("isWhite", false);
+                ju.put("isWatcher", true);
+                playerList.add(ju);
+            }
+        }
+        // 5. 计算当前回合
+        int nextPlayer = 1;
+        if (movesList != null && !movesList.isEmpty()) {
+            nextPlayer = movesList.get(movesList.size() - 1).getPlayer() == 1 ? 2 : 1;
+        }
+        // 6. 组装恢复数据
         JSONObject resp = new JSONObject();
         resp.put("board", board);
         resp.put("nextPlayer", nextPlayer);
         resp.put("players", playerList);
-        resp.put("winner", record.getWinner());
-        // 可选：winningLine等
-
+        resp.put("winner", record.get("winner"));
         try {
             String restoreMsg = com.alibaba.fastjson.JSON.toJSONString(WSResult.restore(resp));
-            System.out.println("[WS][restore] send to userId=" + userId + ", roomId=" + roomId + ", msg=" + restoreMsg);
             session.sendMessage(new TextMessage(restoreMsg));
         } catch (Exception e) {
             e.printStackTrace();

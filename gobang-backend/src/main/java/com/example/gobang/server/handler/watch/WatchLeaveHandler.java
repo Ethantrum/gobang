@@ -1,25 +1,23 @@
 package com.example.gobang.server.handler.watch;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.example.gobang.pojo.entity.Room;
-import com.example.gobang.pojo.entity.RoomUser;
 import com.example.gobang.server.handler.WSMessageHandler;
 import com.example.gobang.server.handler.WebSocketMessageHandler;
-import com.example.gobang.server.mapper.RoomMapper;
-import com.example.gobang.server.mapper.RoomUserMapper;
+import com.example.gobang.server.service.manage.room.RedisRoomManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketSession;
-import java.util.List;
+import java.util.*;
 
+/**
+ * 观战离开处理器：基于Redis分离结构实现。
+ * 观战者离开房间，自动处理房主转让、房间解散、成员清理等。
+ */
 @Component
 public class WatchLeaveHandler implements WebSocketMessageHandler {
     @Autowired
     private WatchSessionManager watchSessionManager;
     @Autowired
-    private RoomUserMapper roomUserMapper;
-    @Autowired
-    private RoomMapper roomMapper;
+    private RedisRoomManager redisRoomManager;
 
     @WSMessageHandler("watchLeave")
     public void handleWatchLeave(WebSocketSession session, Object data) {
@@ -28,36 +26,50 @@ public class WatchLeaveHandler implements WebSocketMessageHandler {
         if (roomId == null || userId == null) {
             return;
         }
-        // 1. 判断是否房主
-        Room room = roomMapper.selectById(roomId);
-        if (room != null && room.getOwnerId().equals(userId)) {
-            // 查找剩余player
-            List<RoomUser> leftUsers = roomUserMapper.selectList(
-                new QueryWrapper<RoomUser>().eq("room_id", roomId).ne("user_id", userId)
-            );
-            RoomUser newOwner = null;
-            for (RoomUser ru : leftUsers) {
-                byte role = ru.getRole();
-                if (role == 0 || role == 1 || role == 2) { // player, black, white
-                    newOwner = ru;
-                    break;
+        String roomIdStr = roomId.toString();
+        String userIdStr = userId.toString();
+        Map<Object, Object> roomInfo = redisRoomManager.getRoomInfo(roomIdStr);
+        if (roomInfo != null && roomInfo.get("owner_id") != null && roomInfo.get("owner_id").toString().equals(userIdStr)) {
+            // 当前用户是房主，转移房主或解散房间
+            Set<Object> playerIds = redisRoomManager.getRoomPlayerIds(roomIdStr);
+            Set<Object> watcherIds = redisRoomManager.getRoomWatcherIds(roomIdStr);
+            List<String> leftPlayers = new ArrayList<>();
+            if (playerIds != null) {
+                for (Object uid : playerIds) if (!uid.toString().equals(userIdStr)) leftPlayers.add(uid.toString());
+            }
+            String newOwnerId = null;
+            if (!leftPlayers.isEmpty()) {
+                newOwnerId = leftPlayers.get(0);
+            } else if (watcherIds != null && !watcherIds.isEmpty()) {
+                for (Object uid : watcherIds) {
+                    if (!uid.toString().equals(userIdStr)) {
+                        newOwnerId = uid.toString();
+                        break;
+                    }
                 }
             }
-            if (newOwner != null) {
-                room.setOwnerId(newOwner.getUserId());
-                roomMapper.updateById(room);
+            if (newOwnerId != null) {
+                roomInfo.put("owner_id", newOwnerId);
+                redisRoomManager.createRoom(roomIdStr, convertToStringObjectMap(roomInfo));
             } else {
-                // 没有player，删除房间
-                roomMapper.deleteById(roomId);
+                redisRoomManager.deleteRoom(roomIdStr);
             }
         } else {
-            // 2. 不是房主则删除room_user表中自己信息
-            roomUserMapper.delete(new QueryWrapper<RoomUser>().eq("room_id", roomId).eq("user_id", userId));
+            // 不是房主则删除观战者信息
+            redisRoomManager.removeRoomWatcher(roomIdStr, userIdStr);
         }
-        // 3. 移除观战session并断开
+        // 移除观战session并断开
         watchSessionManager.removeWatchSession(session);
         try {
             session.close();
         } catch (Exception ignored) {}
+    }
+
+    private static Map<String, Object> convertToStringObjectMap(Map<Object, Object> map) {
+        Map<String, Object> result = new HashMap<>();
+        for (Map.Entry<Object, Object> entry : map.entrySet()) {
+            result.put(entry.getKey().toString(), entry.getValue());
+        }
+        return result;
     }
 } 
