@@ -71,6 +71,20 @@ public class WSResult<T> implements Serializable {
         return wsResult;
     }
 
+    public static <T> WSResult<T> validationError(T object){
+        WSResult<T> wsResult = new WSResult<T>();
+        wsResult.type = "validation_error";
+        wsResult.data = object;
+        return wsResult;
+    }
+
+    public static <T> WSResult<T> permissionError(T object){
+        WSResult<T> wsResult = new WSResult<T>();
+        wsResult.type = "permission_error";
+        wsResult.data = object;
+        return wsResult;
+    }
+
     public static <T> WSResult<T> kick(T object){
         WSResult<T> wsResult = new WSResult<T>();
         wsResult.type = "kick";

@@ -340,6 +340,15 @@
                 lastOptimisticMove.value = null
               }
               break
+            case 'validation_error':
+              // 验证错误（如位置已有棋子、无效坐标等）
+              showToast(msg.data || '验证失败')
+              if (lastOptimisticMove.value) {
+                const { x, y } = lastOptimisticMove.value
+                boardData.value[x][y] = 0
+                lastOptimisticMove.value = null
+              }
+              break
             case 'kick':
               showToast(msg.data || '您已被踢出房间')
               if (socket.value) {

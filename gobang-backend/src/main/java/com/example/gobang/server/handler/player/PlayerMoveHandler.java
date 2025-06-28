@@ -61,7 +61,7 @@ public class PlayerMoveHandler implements WebSocketMessageHandler {
             }
         }
         if (record == null) {
-            session.sendMessage(new TextMessage(JSON.toJSONString(WSResult.error("对局不存在或已结束"))));
+            session.sendMessage(new TextMessage(JSON.toJSONString(WSResult.kick("对局不存在或已结束"))));
             return;
         }
         // 2. 检查该位置是否已有棋子
@@ -72,7 +72,7 @@ public class PlayerMoveHandler implements WebSocketMessageHandler {
                 Object mx = move.get("x");
                 Object my = move.get("y");
                 if (mx != null && my != null && mx.toString().equals(x.toString()) && my.toString().equals(y.toString())) {
-                    session.sendMessage(new TextMessage(JSON.toJSONString(WSResult.error("此处已有棋子"))));
+                    session.sendMessage(new TextMessage(JSON.toJSONString(WSResult.validationError("此处已有棋子"))));
                     return;
                 }
             }
