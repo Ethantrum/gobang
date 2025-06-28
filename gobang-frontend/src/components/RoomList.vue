@@ -6,8 +6,9 @@
         <span>房主ID: {{ room.ownerId }}</span>
         <span>玩家: {{ room.count }}/2</span>
         <span>状态: {{ getStatusText(room.status) }}</span>
-        <button v-if="room.status === 0" @click="$emit('join-room', room.roomId)" :disabled="joinRoomLoading[room.roomId]">{{ joinRoomLoading[room.roomId] ? '加入中...' : '加入' }}</button>
-        <button v-else @click="$emit('watch-room', room.roomId)" :disabled="watchRoomLoading[room.roomId]">{{ watchRoomLoading[room.roomId] ? '观战中...' : '观战' }}</button>
+        <button v-if="room.status === 0 && room.count < 2" @click="$emit('join-room', room.roomId)" :disabled="joinRoomLoading[room.roomId]">{{ joinRoomLoading[room.roomId] ? '加入中...' : '加入' }}</button>
+        <button v-else-if="room.count >= 2 || room.status > 0" @click="$emit('watch-room', room.roomId)" :disabled="watchRoomLoading[room.roomId]">{{ watchRoomLoading[room.roomId] ? '观战中...' : '观战' }}</button>
+        <span v-else class="waiting-text">等待中...</span>
       </div>
     </template>
     <template v-else>
@@ -97,6 +98,11 @@ export default {
 }
 .room-item button:last-child:hover {
   background: #1769aa;
+}
+.waiting-text {
+  color: #999;
+  font-style: italic;
+  min-width: auto !important;
 }
 .no-room-tip {
   text-align: center;

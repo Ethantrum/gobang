@@ -238,4 +238,94 @@ public class RedisRoomManager {
     public RedisTemplate<String, Object> getRedisTemplate() {
         return redisTemplate;
     }
+
+    // ---------------- 恢复数据相关 ----------------
+    /**
+     * 获取玩家恢复数据
+     */
+    public com.alibaba.fastjson.JSONObject getPlayerRestoreData(String roomId, String userId) {
+        // 查找未结束的对局
+        Long foundGameId = null;
+        Map<Object, Object> record = null;
+        long maxGameId = 0L;
+        Object maxGameIdObj = redisTemplate.opsForValue().get("game:id:incr");
+        if (maxGameIdObj != null) {
+            try { maxGameId = Long.parseLong(maxGameIdObj.toString()); } catch (Exception ignored) {}
+        }
+        for (long gid = 1; gid <= maxGameId; gid++) {
+            Map<Object, Object> game = getGameRecord(String.valueOf(gid));
+            if (game == null || game.isEmpty()) continue;
+            Object roomIdObj2 = game.get("room_id");
+            Object endTimeObj = game.get("end_time");
+            if (roomIdObj2 != null && roomIdObj2.toString().equals(roomId) && (endTimeObj == null || endTimeObj.toString().isEmpty())) {
+                foundGameId = gid;
+                record = game;
+                break;
+            }
+        }
+        
+        if (record == null) {
+            return null;
+        }
+        
+        // 构建恢复数据
+        com.alibaba.fastjson.JSONObject restoreData = new com.alibaba.fastjson.JSONObject();
+        List<Object> moves = getGameMoves(foundGameId.toString());
+        int[][] board = buildBoardFromMoves(moves);
+        restoreData.put("board", board);
+        restoreData.put("nextPlayer", moves.size() % 2 == 0 ? 1 : 2);
+        restoreData.put("gameId", foundGameId);
+        
+        // 获取玩家信息
+        Set<Object> playerIds = getRoomPlayerIds(roomId);
+        Set<Object> watcherIds = getRoomWatcherIds(roomId);
+        java.util.List<Map<Object, Object>> players = new java.util.ArrayList<>();
+        
+        if (playerIds != null) {
+            for (Object pid : playerIds) {
+                Map<Object, Object> playerInfo = getRoomPlayerInfo(roomId, pid.toString());
+                if (playerInfo != null && !playerInfo.isEmpty()) {
+                    players.add(playerInfo);
+                }
+            }
+        }
+        if (watcherIds != null) {
+            for (Object wid : watcherIds) {
+                Map<Object, Object> watcherInfo = getRoomWatcherInfo(roomId, wid.toString());
+                if (watcherInfo != null && !watcherInfo.isEmpty()) {
+                    players.add(watcherInfo);
+                }
+            }
+        }
+        restoreData.put("players", players);
+        
+        return restoreData;
+    }
+
+    /**
+     * 获取观战者恢复数据
+     */
+    public com.alibaba.fastjson.JSONObject getWatchRestoreData(String roomId, String userId) {
+        // 观战者的恢复数据与玩家相同，都是获取当前房间的棋局状态
+        return getPlayerRestoreData(roomId, userId);
+    }
+
+    /**
+     * 从落子记录构建棋盘
+     */
+    private int[][] buildBoardFromMoves(List<Object> moves) {
+        int[][] board = new int[15][15];
+        for (Object moveObj : moves) {
+            if (moveObj instanceof Map) {
+                Map move = (Map) moveObj;
+                Object x = move.get("x");
+                Object y = move.get("y");
+                Object player = move.get("player");
+                if (x != null && y != null && player != null) {
+                    board[Integer.parseInt(x.toString())][Integer.parseInt(y.toString())] = Integer.parseInt(player.toString());
+                }
+            }
+        }
+        return board;
+    }
 } 

@@ -2,6 +2,8 @@ import { createRouter, createWebHistory } from 'vue-router'
 import UserLogin from '@/views/UserLogin.vue'
 import UserRegister from '@/views/UserRegister.vue'
 import GobangGame from "@/views/GobangGame.vue";
+import GobangPlayer from "@/views/GobangPlayer.vue";
+import GobangWatch from "@/views/GobangWatch.vue";
 import GameHall from "@/views/GameHall.vue";
 
 const routes = [
@@ -38,6 +40,24 @@ const routes = [
         component: GobangGame,
         meta: {
             title: '在线对局',
+            requiresAuth: true,
+        }
+    },
+    {
+        path: '/game/player/:roomId',
+        name: 'GobangPlayer',
+        component: GobangPlayer,
+        meta: {
+            title: '五子棋对局',
+            requiresAuth: true,
+        }
+    },
+    {
+        path: '/game/watch/:roomId',
+        name: 'GobangWatch',
+        component: GobangWatch,
+        meta: {
+            title: '观战对局',
             requiresAuth: true,
         }
     },

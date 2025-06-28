@@ -159,10 +159,10 @@ export default {
           showToast('加入房间成功！')
           showJoinRoom.value = false
           sessionStorage.setItem('roomId', joinRoomId.value)
-          // 跳转到五子棋页面，传递加入的房间ID和身份类型
+          // 跳转到玩家对局页面
           router.push({
-            name: 'Gobang',
-            params: { roomId: joinRoomId.value, role: 'player' }
+            name: 'GobangPlayer',
+            params: { roomId: joinRoomId.value }
           })
         } else {
           showToast(res.msg || '加入房间失败')
@@ -204,10 +204,10 @@ export default {
         if (res.code === 0) {
           showToast('加入房间成功！')
           sessionStorage.setItem('roomId', roomId)
-          // 跳转到五子棋页面，传递房间ID和身份类型
+          // 跳转到玩家对局页面
           router.push({
-            name: 'Gobang',
-            params: { roomId: roomId, role: 'player' }
+            name: 'GobangPlayer',
+            params: { roomId: roomId }
           })
         } else {
           showToast(res.msg || '加入房间失败')
@@ -225,8 +225,8 @@ export default {
       try {
         const res = await roomWatch(roomId)
         if (res.code === 0) {
-          // 跳转到五子棋页面，传递房间ID和身份类型（用query）
-          router.push({ name: 'Gobang', params: { roomId }, query: { role: 'watch' } })
+          // 跳转到观战页面
+          router.push({ name: 'GobangWatch', params: { roomId } })
         } else {
           showToast(res.msg || '观战失败')
         }

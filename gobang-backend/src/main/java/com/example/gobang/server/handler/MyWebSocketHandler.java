@@ -96,12 +96,12 @@ public class MyWebSocketHandler extends TextWebSocketHandler {
         String type = msg.getString("type");
         Byte role = (Byte) session.getAttributes().get("role");
         if (isPlayerOp(type) && !isPlayerRole(role)) {
-            session.sendMessage(new TextMessage(com.alibaba.fastjson.JSON.toJSONString(WSResult.error("观战者无法进行此操作"))));
+            session.sendMessage(new TextMessage(com.alibaba.fastjson.JSON.toJSONString(WSResult.error("观战者无法执行玩家操作：" + type))));
             log.warn("[WS] 拒绝观战者操作 type={}, sessionId={}", type, session.getId());
             return;
         }
         if (isWatchOp(type) && !isWatchRole(role)) {
-            session.sendMessage(new TextMessage(com.alibaba.fastjson.JSON.toJSONString(WSResult.error("只有观战者可以进行此操作"))));
+            session.sendMessage(new TextMessage(com.alibaba.fastjson.JSON.toJSONString(WSResult.error("玩家无法执行观战操作：" + type))));
             log.warn("[WS] 拒绝非观战者操作 type={}, sessionId={}", type, session.getId());
             return;
         }
@@ -140,10 +140,10 @@ public class MyWebSocketHandler extends TextWebSocketHandler {
 
     // 辅助方法
     private boolean isPlayerOp(String type) {
-        return java.util.Set.of("move", "undo", "restart_request", "restart_response", "join").contains(type);
+        return java.util.Set.of("move", "undo", "restart_request", "restart_response", "join", "leave", "playerRestore").contains(type);
     }
     private boolean isWatchOp(String type) {
-        return java.util.Set.of("watchJoin", "watchLeave").contains(type);
+        return java.util.Set.of("watchJoin", "watchLeave", "watchRestore").contains(type);
     }
     private boolean isPlayerRole(Byte role) {
         return role != null && (role == ROLE_PLAYER || role == ROLE_BLACK || role == ROLE_WHITE);

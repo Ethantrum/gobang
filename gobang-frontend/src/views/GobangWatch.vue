@@ -11,25 +11,27 @@
     <!-- 棋盘与回合提示区 -->
     <main class="board-section">
       <div v-if="isWatcher" class="watcher-banner watcher-indicator">观战中：您当前仅可观战，无法操作棋盘</div>
-      <div class="turn-indicator" :class="{ active: isMyTurn && playerCount === 2 && !winner }">
-        <template v-if="!isWatcher">{{ indicatorText }}</template>
-      </div>
       <div class="board">
         <div v-for="(row, rowIndex) in 15" :key="rowIndex" class="row">
-          <div v-for="(col, colIndex) in 15" :key="colIndex" class="cell" @click="placePiece(rowIndex, colIndex)">
+          <div v-for="(col, colIndex) in 15" :key="colIndex" class="cell">
             <div v-if="boardData[rowIndex][colIndex]"
                  :class="[
-                     boardData[rowIndex][colIndex] === 1 ? 'black-piece' : 'white-piece',
-                     'piece',
-                     { 'highlight': isWinningPiece(rowIndex, colIndex) }
-                 ]">
+                       boardData[rowIndex][colIndex] === 1 ? 'black-piece' : 'white-piece',
+                       'piece',
+                       { 'highlight': isWinningPiece(rowIndex, colIndex) }
+                   ]">
             </div>
           </div>
         </div>
       </div>
+      <!-- 胜负横幅与再来一局 -->
+      <div v-if="winner" class="result-banner">
+        <span>{{ winnerText }}</span>
+      </div>
     </main>
     <!-- Toast提示挂载点 -->
     <div v-if="toastMsg" class="toast-message">{{ toastMsg }}</div>
+    <!-- 退出房间二次确认弹窗 -->
     <div v-if="showLeaveConfirm" class="restart-dialog-mask">
       <div class="restart-dialog">
         <div class="restart-title">确定要退出房间吗？</div>
@@ -46,6 +48,7 @@
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { connectWs, closeWs, sendWs } from '@/services/gobangGameService'
+import { fetchUserInfo } from '@/services/userService'
 import { leaveRoom } from '@/services/gameHallService'
 import { globalState } from '@/globalState'
 
@@ -67,31 +70,23 @@ export default {
     const user = globalState.user
     const roomInfo = ref({ status: 0, count: 0 })
     const userId = ref(localStorage.getItem('userId') || 'user_' + Math.floor(Math.random() * 10000))
+    // 保证user.userId有值
     if (!user.userId && userId.value) {
       user.userId = userId.value
     }
     const leaveLoading = ref(false)
-    const isWatcher = ref(true) // 观战端始终为true
+    const isWatcher = ref(true) // 观战页面固定为观战者
     const showLeaveConfirm = ref(false)
 
+    // 棋子身份文本与样式
     const myPieceText = computed(() => {
-      const me = players.value.find(p => p.userId == user.userId)
-      if (!me) return '观战'
-      if (me.isWatcher) return '观战'
-      if (me.isBlack) return '黑棋'
-      if (me.isWhite) return '白棋'
-      return '观战'
+      return '观战者'
     })
     const myPieceClass = computed(() => {
-      const me = players.value.find(p => p.userId == user.userId)
-      if (!me) return 'spectator'
-      if (me.isWatcher) return 'watcher-label'
-      if (me.isBlack) return 'black-piece-label'
-      if (me.isWhite) return 'white-piece-label'
-      return 'spectator'
+      return 'watcher-label'
     })
-    const isMyTurn = computed(() => false)
-    const playerCount = computed(() => players.value.filter(p => !p.isWatcher).length)
+    
+    // 胜负横幅文本
     const winnerText = computed(() => {
       if (!winner.value) return ''
       const winPlayer = players.value.find(p => p.userId == winner.value)
@@ -100,16 +95,32 @@ export default {
       }
       return '对局结束'
     })
-    function syncIsWatcher() {
-      isWatcher.value = true
-    }
+
+    // 观战状态提示
     const indicatorText = computed(() => {
+      if (players.value.length < 2) return '等待玩家加入...'
+      if (winner.value) return '游戏结束'
       return '观战中：您当前仅可观战，无法操作棋盘'
     })
+
+    // players变化时自动同步isWatcher
+    function syncIsWatcher() {
+      const me = players.value.find(p => p.userId == user.userId)
+      // 优先根据players数据判断，否则用路由参数
+      if (me) {
+        isWatcher.value = !!me.isWatcher
+      } else {
+        isWatcher.value = (route.query.role === 'watch')
+      }
+    }
+
+    // Toast 非阻塞提示
     function showToast(msg) {
       toastMsg.value = msg
       setTimeout(() => { toastMsg.value = '' }, 2000)
     }
+
+    // 退出房间逻辑
     const onLeaveClick = () => {
       showLeaveConfirm.value = true
     }
@@ -128,23 +139,53 @@ export default {
         leaveLoading.value = false
       }
     }
+
+    // 获取房间信息
+    const fetchRoomInfo = async () => {
+      try {
+        // 这里可以调用获取房间详情的接口
+        // const res = await fetchRoomInfo(roomId.value)
+        // if (res.code === 0) {
+        //   roomInfo.value = res.data
+        // }
+      } catch (e) {
+        showToast('获取房间信息失败')
+      }
+    }
+
+    // 处理服务端消息
     const onWSMessage = (e) => {
       try {
         const msg = JSON.parse(e.data)
+        console.log('[WS] onWSMessage', msg)
         switch (msg.type) {
           case 'join':
             players.value = msg.data.players
+            // 自动同步 isWatcher
             syncIsWatcher()
             break
           case 'start': {
+            console.log('[WS][start] 收到start消息', msg)
             players.value = msg.data.players
             roomInfo.value.status = 1
             boardData.value = Array(15).fill().map(() => Array(15).fill(0))
             winner.value = null
             currentPlayer.value = 1
             winningLine.value = []
+            // 自动同步 isWatcher
             syncIsWatcher()
-            showToast('新对局已开始，黑棋先行')
+            // 观战者也刷新棋盘和玩家信息
+            if (isWatcher.value) {
+              showToast('新对局已开始，黑棋先行')
+            } else {
+              // 优化提示：明确告知用户身份
+              const me = msg.data.players.find(p => p.userId == user.userId)
+              if (me && !me.isWatcher) {
+                showToast(`游戏开始！黑棋先行，你执${me.isBlack ? '黑棋' : '白棋'}。`)
+              } else {
+                showToast('游戏开始！黑棋先行。')
+              }
+            }
             break
           }
           case 'move':
@@ -156,16 +197,10 @@ export default {
             if (msg.data.board) {
               boardData.value = msg.data.board
             }
-            if (Array.isArray(msg.data.winningLine)) {
+            if (msg.data.winningLine) {
               winningLine.value = msg.data.winningLine
-            } else {
-              winningLine.value = []
             }
             showToast(winnerText.value)
-            break
-          case 'restart':
-          case 'restart_request':
-            // 观战端不弹出再来一局对话框
             break
           case 'undo':
             boardData.value = msg.data.board
@@ -177,6 +212,10 @@ export default {
             break
           case 'error':
             showToast(typeof msg.data === 'string' ? msg.data : (msg.data && msg.data.message) || '发生未知错误')
+            break
+          case 'validation_error':
+            // 验证错误（如位置已有棋子、无效坐标等）
+            showToast(msg.data || '验证失败')
             break
           case 'kick':
             showToast(msg.data || '您已被踢出房间')
@@ -191,22 +230,32 @@ export default {
             isWatcher.value = true
             showToast(msg.msg || '您已切换为观战模式')
             break
+          case 'master':
+            isWatcher.value = false
+            showToast(msg.msg || '您已成为主控端，可以操作棋盘')
+            break
           case 'restore':
+            // 新增：断线重连恢复棋局
             if (msg.data) {
               boardData.value = msg.data.board || Array(15).fill().map(() => Array(15).fill(0))
               currentPlayer.value = msg.data.nextPlayer || 1
               players.value = msg.data.players || []
               winner.value = msg.data.winner || null
-              if (Array.isArray(msg.data.winningLine)) {
-                winningLine.value = msg.data.winningLine
-              } else {
-                winningLine.value = []
-              }
+              winningLine.value = msg.data.winningLine || []
               syncIsWatcher()
+              // 保证user.userId有值
               if (!user.userId && userId.value) {
                 user.userId = userId.value
               }
+              // 只有有落子时才提示
               const hasMove = msg.data.board && msg.data.board.some(row => row.some(cell => cell !== 0))
+              // 日志：重连恢复后关键信息
+              console.log('[WS][restore] players:', players.value)
+              console.log('[WS][restore] userId:', user.userId)
+              const me = players.value.find(p => p.userId == user.userId)
+              console.log('[WS][restore] me:', me)
+              console.log('[WS][restore] myPieceText:', myPieceText.value)
+              console.log('[WS][restore] myPieceClass:', myPieceClass.value)
               if (hasMove) {
                 showToast('棋局已恢复')
               }
@@ -220,21 +269,29 @@ export default {
         showToast('消息解析失败')
       }
     }
+
+    // 连接WebSocket
     const connectWebSocket = () => {
+      console.log('[WS] connectWebSocket called');
       connectWs(socket, wsStatus, {
         userId: userId.value,
         roomId: roomId.value,
         onMessage: onWSMessage
       })
+      // 先恢复棋局再自动join
       const trySendRestoreAndJoin = () => {
         setTimeout(() => {
           if (socket.value && socket.value.readyState === WebSocket.OPEN) {
+            // 1. 先恢复棋局
+            console.log('[WS] send watchRestore', { userId: userId.value, roomId: roomId.value });
             sendWs(socket, JSON.stringify({
-              type: 'restore_request',
+              type: 'watchRestore',
               data: { userId: userId.value, roomId: roomId.value }
             }))
+            // 2. 再join房间，确保后端注册session
             setTimeout(() => {
               if (socket.value && socket.value.readyState === WebSocket.OPEN) {
+                console.log('[WS] send watchJoin', { userId: userId.value, username: user.nickname, roomId: roomId.value });
                 sendWs(socket, JSON.stringify({
                   type: 'watchJoin',
                   data: { userId: userId.value, username: user.nickname, roomId: roomId.value }
@@ -248,45 +305,60 @@ export default {
       }
       trySendRestoreAndJoin()
     }
-    // 观战端禁止落子
-    const placePiece = () => {}
-    // 观战端禁止悔棋
-    const sendUndo = () => {}
-    const isWinningPiece = (x, y) => {
-      return Array.isArray(winningLine.value) && winningLine.value.some(([wx, wy]) => wx === x && wy === y)
+
+    // 发送加入房间/观战
+    const sendJoin = () => {
+      if (socket.value) {
+        sendWs(socket, JSON.stringify({
+          type: 'watchJoin',
+          data: { userId: userId.value, username: user.nickname, roomId: roomId.value }
+        }))
+      }
     }
-    onMounted(() => {
+
+    // 悔棋
+    const sendUndo = () => {
+      if (isWatcher.value) return
+      if (socket.value) sendWs(socket, JSON.stringify({ type: 'undo' }))
+    }
+
+    // 退出
+    const sendLeave = () => {
+      if (socket.value) sendWs(socket, JSON.stringify({ type: 'leave' }))
+    }
+
+    // 新增：判断是否为高亮棋子
+    const isWinningPiece = (x, y) => {
+      return winningLine.value.some(p => p.x === x && p.y === y);
+    };
+
+    onMounted(async () => {
+      // 先拉取用户信息
+      try {
+        await fetchUserInfo()
+        await fetchRoomInfo()
+      } catch (e) {
+        // eslint-disable-next-line no-empty
+      }
       connectWebSocket()
+      setTimeout(sendJoin, 500)
     })
     onBeforeUnmount(() => {
-      if (socket.value) closeWs(socket)
+      sendLeave()
+      closeWs(socket)
     })
+
     return {
-      boardData,
-      currentPlayer,
-      socket,
-      wsStatus,
-      winner,
-      winningLine,
-      players,
-      toastMsg,
-      roomId,
-      user,
-      roomInfo,
+      boardData, currentPlayer, winner, players,
+      sendUndo, sendLeave, roomId, user, roomInfo,
+      myPieceText, myPieceClass, winnerText, toastMsg,
       leaveLoading,
-      isWatcher,
-      myPieceText,
-      myPieceClass,
-      isMyTurn,
-      playerCount,
-      winnerText,
       indicatorText,
+      isWinningPiece,
+      isWatcher,
       showLeaveConfirm,
       onLeaveClick,
-      confirmLeaveRoom,
-      placePiece,
-      sendUndo,
-      isWinningPiece
+      confirmLeaveRoom
     }
   }
 }
@@ -348,7 +420,6 @@ export default {
   color: #888;
 }
 .exit-btn {
-  margin-left: auto;
   background: #f56c6c;
   color: #fff;
   border: none;
@@ -362,15 +433,11 @@ export default {
 .exit-btn:hover {
   background: #d9534f;
 }
-.exit-btn:disabled {
-  background: #bbb;
-  cursor: not-allowed;
-}
 .board-section {
-  margin-top: 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
+  margin-top: 24px;
 }
 .turn-indicator {
   font-size: 20px;
@@ -460,10 +527,34 @@ export default {
 }
 .white-piece {
   background: radial-gradient(circle at 70% 70%, #fff, #ddd 80%);
+  border: 1.5px solid #bbb;
 }
-.piece.highlight {
-  box-shadow: 0 0 12px 4px #ffeb3b;
-  border: 2px solid #fff;
+.result-banner {
+  margin-top: 18px;
+  background: #2d8cf0;
+  color: #fff;
+  padding: 12px 32px;
+  border-radius: 8px;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  box-shadow: 0 2px 8px rgba(45,140,240,0.08);
+}
+.restart-btn {
+  background: #4CAF50;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 20px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background 0.2s;
+  font-weight: bold;
+  margin-left: 18px;
+}
+.restart-btn:hover {
+  background: #388e3c;
 }
 .toast-message {
   position: fixed;
@@ -479,17 +570,6 @@ export default {
   opacity: 0.95;
   box-shadow: 0 2px 8px rgba(0,0,0,0.15);
   transition: opacity 0.3s;
-}
-.watcher-banner.watcher-indicator {
-  color: #f56c6c;
-  background: #fff0f0;
-  border: 1px solid #f56c6c;
-  border-radius: 6px;
-  padding: 8px 0;
-  margin-bottom: 10px;
-  font-weight: bold;
-  text-align: center;
-  font-size: 18px;
 }
 .restart-dialog-mask {
   position: fixed;
@@ -534,5 +614,37 @@ export default {
 .restart-actions button:disabled {
   background: #bbb;
   cursor: not-allowed;
+}
+.restart-tip {
+  color: #888;
+  font-size: 15px;
+}
+.restart-waiting {
+  position: fixed;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #2d8cf0;
+  color: #fff;
+  padding: 12px 32px;
+  border-radius: 8px;
+  font-size: 18px;
+  z-index: 2000;
+  box-shadow: 0 2px 8px rgba(45,140,240,0.08);
+}
+.piece.highlight {
+  box-shadow: 0 0 12px 4px #ffeb3b;
+  border: 2px solid #fff;
+}
+.watcher-banner.watcher-indicator {
+  color: #f56c6c;
+  background: #fff0f0;
+  border: 1px solid #f56c6c;
+  border-radius: 6px;
+  padding: 8px 0;
+  margin-bottom: 10px;
+  font-weight: bold;
+  text-align: center;
+  font-size: 18px;
 }
 </style>
