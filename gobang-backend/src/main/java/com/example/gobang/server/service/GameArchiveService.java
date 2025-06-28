@@ -1,5 +1,8 @@
 package com.example.gobang.server.service;
 
+import com.alibaba.fastjson.JSON;
+import com.example.gobang.pojo.entity.GameRecord;
+import com.example.gobang.server.mapper.GameRecordMapper;
 import com.example.gobang.server.service.manage.room.RedisRoomManager;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
@@ -7,8 +10,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Date;
+
 import java.util.List;
 import java.util.Map;
 
@@ -22,6 +28,12 @@ public class GameArchiveService {
 
     @Autowired
     private RedisRoomManager redisRoomManager;
+
+    @Autowired
+    private GameRecordMapper gameRecordMapper;
+
+    @Autowired
+    private GameRestartCacheService gameRestartCacheService;
 
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
@@ -56,6 +68,26 @@ public class GameArchiveService {
             redisRoomManager.deleteGameRecord(gameId.toString());
             log.info("已删除Redis中的游戏数据 - gameId: {}", gameId);
 
+            // 6. 存储归档数据到数据库
+            GameRecord record = GameRecord.builder()
+                    .roomId(roomId)
+                    .gameId(gameId)
+                    .blackPlayerId(Long.valueOf(gameRecord.get("black_id").toString()))
+                    .whitePlayerId(Long.valueOf(gameRecord.get("white_id").toString()))
+                    .winnerId(gameRecord.get("winner") != null ? Long.valueOf(gameRecord.get("winner").toString()) : null)
+                    .startTime(convertTimestampToLocalDateTime(gameRecord.get("start_time")))
+                    .endTime(convertTimestampToLocalDateTime(gameRecord.get("end_time")))
+                    .moves(JSON.toJSONString(archiveData.getMoves()))
+                    .build();
+            
+            gameRecordMapper.insert(record);
+            log.info("已存储归档数据到数据库 - gameId: {}", gameId);
+
+            // 7. 缓存上一局信息用于重开
+            Long blackPlayerId = Long.valueOf(gameRecord.get("black_id").toString());
+            Long whitePlayerId = Long.valueOf(gameRecord.get("white_id").toString());
+            gameRestartCacheService.cacheLastGameInfo(roomId, gameId, blackPlayerId, whitePlayerId);
+
         } catch (Exception e) {
             log.error("游戏归档异常，roomId: {}, gameId: {}", roomId, gameId, e);
         }
@@ -75,26 +107,41 @@ public class GameArchiveService {
         data.setEndTime(convertTimestampToString(gameRecord.get("end_time")));
         data.setTotalMoves(moves != null ? moves.size() : 0);
         
-        // 构建落子序列
-        List<MoveData> moveList = new ArrayList<>();
+        // 构建坐标数组 - 直接存储[x, y]坐标
+        List<List<Integer>> coordinates = new ArrayList<>();
         if (moves != null) {
-            for (int i = 0; i < moves.size(); i++) {
-                Object moveObj = moves.get(i);
+            for (Object moveObj : moves) {
                 if (moveObj instanceof Map) {
                     Map move = (Map) moveObj;
-                    MoveData moveData = new MoveData();
-                    moveData.setMoveIndex(i + 1);
-                    moveData.setX(Integer.valueOf(move.get("x").toString()));
-                    moveData.setY(Integer.valueOf(move.get("y").toString()));
-                    moveData.setPlayer(Integer.valueOf(move.get("player").toString()));
-                    moveData.setMoveTime(convertTimestampToString(move.get("move_time")));
-                    moveList.add(moveData);
+                    Object x = move.get("x");
+                    Object y = move.get("y");
+                    if (x != null && y != null) {
+                        List<Integer> coord = new ArrayList<>();
+                        coord.add(Integer.valueOf(x.toString()));
+                        coord.add(Integer.valueOf(y.toString()));
+                        coordinates.add(coord);
+                    }
                 }
             }
         }
-        data.setMoves(moveList);
+        data.setMoves(coordinates);
         
         return data;
+    }
+
+    /**
+     * 将时间戳转换为LocalDateTime
+     */
+    private LocalDateTime convertTimestampToLocalDateTime(Object timestamp) {
+        if (timestamp == null) {
+            return null;
+        }
+        try {
+            long ts = Long.parseLong(timestamp.toString());
+            return LocalDateTime.ofInstant(new Date(ts).toInstant(), ZoneId.systemDefault());
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     /**
@@ -125,18 +172,6 @@ public class GameArchiveService {
         private String startTime;
         private String endTime;
         private Integer totalMoves;
-        private List<MoveData> moves;
-    }
-
-    /**
-     * 落子数据对象
-     */
-    @Data
-    public static class MoveData {
-        private Integer moveIndex;
-        private Integer x;
-        private Integer y;
-        private Integer player;
-        private String moveTime;
+        private List<List<Integer>> moves;
     }
 } 

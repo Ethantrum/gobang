@@ -5,6 +5,7 @@ import com.example.gobang.common.result.WSResult;
 import com.example.gobang.server.handler.WSMessageHandler;
 import com.example.gobang.server.handler.WebSocketMessageHandler;
 import com.example.gobang.server.handler.watch.WatchSessionManager;
+import com.example.gobang.server.service.GameRestartCacheService;
 import com.example.gobang.server.service.manage.room.RedisRoomManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,6 +29,8 @@ public class PlayerRestartResponseHandler implements WebSocketMessageHandler {
     private WatchSessionManager watchSessionManager;
     @Autowired
     private RedisRoomManager redisRoomManager;
+    @Autowired
+    private GameRestartCacheService gameRestartCacheService;
 
     @WSMessageHandler("restart_response")
     public void handleRestartResponse(WebSocketSession session, JSONObject data) {
@@ -50,30 +53,44 @@ public class PlayerRestartResponseHandler implements WebSocketMessageHandler {
                 log.info("[再来一局] restart_response同意, roomId={}, userId={}, fromUserId={}", roomId, userId, fromUserId);
                 // 1. 查找上一局GameRecord（最大gameId且room_id匹配）
                 Long lastGameId = null;
-                Map<Object, Object> lastRecord = null;
-                long maxGameId = 0L;
-                Object maxGameIdObj = redisRoomManager.getRedisTemplate().opsForValue().get("game:id:incr");
-                if (maxGameIdObj != null) {
-                    try { maxGameId = Long.parseLong(maxGameIdObj.toString()); } catch (Exception ignored) {}
-                }
-                for (long gid = maxGameId; gid >= 1; gid--) {
-                    Map<Object, Object> game = redisRoomManager.getGameRecord(String.valueOf(gid));
-                    if (game == null || game.isEmpty()) continue;
-                    Object roomIdObj2 = game.get("room_id");
-                    if (roomIdObj2 != null && roomIdObj2.toString().equals(roomId.toString())) {
-                        lastGameId = gid;
-                        lastRecord = game;
-                        break;
+                Long lastBlackId = null;
+                Long lastWhiteId = null;
+                
+                // 优先从重开缓存中获取上一局信息
+                Map<String, Object> lastGameInfo = gameRestartCacheService.getLastGameInfo(roomId);
+                if (lastGameInfo != null) {
+                    lastGameId = (Long) lastGameInfo.get("gameId");
+                    lastBlackId = (Long) lastGameInfo.get("blackPlayerId");
+                    lastWhiteId = (Long) lastGameInfo.get("whitePlayerId");
+                    log.info("[再来一局] 从重开缓存找到上一局 - gameId: {}, blackId: {}, whiteId: {}", 
+                            lastGameId, lastBlackId, lastWhiteId);
+                } else {
+                    log.info("[再来一局] 重开缓存中未找到上一局信息，从Redis查找 - roomId: {}", roomId);
+                    // 从Redis查找当前进行中的对局
+                    long maxGameId = 0L;
+                    Object maxGameIdObj = redisRoomManager.getRedisTemplate().opsForValue().get("game:id:incr");
+                    if (maxGameIdObj != null) {
+                        try { maxGameId = Long.parseLong(maxGameIdObj.toString()); } catch (Exception ignored) {}
+                    }
+                    log.info("[再来一局] 当前最大gameId: {}", maxGameId);
+                    for (long gid = maxGameId; gid >= 1; gid--) {
+                        Map<Object, Object> game = redisRoomManager.getGameRecord(String.valueOf(gid));
+                        if (game == null || game.isEmpty()) continue;
+                        Object roomIdObj2 = game.get("room_id");
+                        log.info("[再来一局] 检查gameId: {}, roomId: {}, 目标roomId: {}", gid, roomIdObj2, roomId);
+                        if (roomIdObj2 != null && roomIdObj2.toString().equals(roomId.toString())) {
+                            lastGameId = gid;
+                            lastBlackId = game.get("black_id") == null ? null : Long.valueOf(game.get("black_id").toString());
+                            lastWhiteId = game.get("white_id") == null ? null : Long.valueOf(game.get("white_id").toString());
+                            log.info("[再来一局] 从Redis找到上一局 - gameId: {}, blackId: {}, whiteId: {}", 
+                                    lastGameId, lastBlackId, lastWhiteId);
+                            break;
+                        }
                     }
                 }
-                if (lastRecord == null) {
-                    playerSessionManager.sendToUser(roomId, userId, WSResult.error("未找到上一局对局，无法重开"));
-                    return;
-                }
-                Long lastBlackId = lastRecord.get("black_id") == null ? null : Long.valueOf(lastRecord.get("black_id").toString());
-                Long lastWhiteId = lastRecord.get("white_id") == null ? null : Long.valueOf(lastRecord.get("white_id").toString());
+                
                 if (lastBlackId == null || lastWhiteId == null) {
-                    playerSessionManager.sendToUser(roomId, userId, WSResult.error("上一局玩家信息异常"));
+                    playerSessionManager.sendToUser(roomId, userId, WSResult.error("未找到上一局对局，无法重开"));
                     return;
                 }
                 Long newBlackId = lastWhiteId;
@@ -132,6 +149,9 @@ public class PlayerRestartResponseHandler implements WebSocketMessageHandler {
                 log.info("[再来一局] 直接推送start消息: {}", startData);
                 playerSessionManager.broadcastToRoom(roomId, WSResult.start(startData));
                 watchSessionManager.broadcastToRoom(roomId, WSResult.start(startData));
+                
+                // 更新重开缓存，将当前局信息作为新的上一局信息
+                gameRestartCacheService.cacheLastGameInfo(roomId, newGameId, newBlackId, newWhiteId);
             } catch (Exception e) {
                 e.printStackTrace();
                 playerSessionManager.broadcastToRoom(roomId, WSResult.error("再来一局失败：" + e.getMessage()));

@@ -88,6 +88,9 @@ public class RedisRoomManager {
                 deleteGameRecord(String.valueOf(gid));
             }
         }
+        
+        // 删除重开缓存
+        redisTemplate.delete("room:" + roomId + ":last_game");
     }
 
     // ---------------- 房间成员相关（重构：玩家与观战者分离） ----------------

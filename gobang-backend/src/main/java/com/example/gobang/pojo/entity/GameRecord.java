@@ -20,10 +20,10 @@ public class GameRecord implements Serializable {
     private Long id;
     private Long roomId;
     private Long gameId;
-    private Long blackId;
-    private Long whiteId;
+    private Long blackPlayerId;
+    private Long whitePlayerId;
     private LocalDateTime startTime;
     private LocalDateTime endTime;
-    private Long winner;
+    private Long winnerId;
     private String moves;
 } 
