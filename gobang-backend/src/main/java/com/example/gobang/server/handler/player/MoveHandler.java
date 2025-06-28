@@ -100,21 +100,7 @@ public class MoveHandler implements WebSocketMessageHandler {
         redisRoomManager.addGameMove(foundGameId.toString(), move);
         // 4. 构建棋盘
         List<Object> allMovesAfter = redisRoomManager.getGameMoves(foundGameId.toString());
-        List<GameMoves> movesList = new ArrayList<>();
-        for (Object m : allMovesAfter) {
-            if (m instanceof Map) {
-                Map mm = (Map) m;
-                GameMoves gm = GameMoves.builder()
-                        .gameId(foundGameId)
-                        .moveIndex(mm.get("move_index") == null ? 0 : Integer.parseInt(mm.get("move_index").toString()))
-                        .x(mm.get("x") == null ? 0 : Integer.parseInt(mm.get("x").toString()))
-                        .y(mm.get("y") == null ? 0 : Integer.parseInt(mm.get("y").toString()))
-                        .player(mm.get("player") == null ? 0 : Integer.parseInt(mm.get("player").toString()))
-                        .build();
-                movesList.add(gm);
-            }
-        }
-        int[][] board = buildBoardFromMoves(movesList);
+        int[][] board = buildBoardFromMoves(allMovesAfter);
         WinResult winResult = checkWin(board, x, y, player);
         if (winResult.isWin()) {
             record.put("end_time", String.valueOf(System.currentTimeMillis()));
@@ -181,10 +167,18 @@ public class MoveHandler implements WebSocketMessageHandler {
         return new WinResult(false, null);
     }
 
-    private int[][] buildBoardFromMoves(List<GameMoves> moves) {
+    private int[][] buildBoardFromMoves(List<Object> moves) {
         int[][] board = new int[15][15];
-        for (GameMoves move : moves) {
-            board[move.getX()][move.getY()] = move.getPlayer();
+        for (Object moveObj : moves) {
+            if (moveObj instanceof Map) {
+                Map move = (Map) moveObj;
+                Object x = move.get("x");
+                Object y = move.get("y");
+                Object player = move.get("player");
+                if (x != null && y != null && player != null) {
+                    board[Integer.parseInt(x.toString())][Integer.parseInt(y.toString())] = Integer.parseInt(player.toString());
+                }
+            }
         }
         return board;
     }

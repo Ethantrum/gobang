@@ -3,7 +3,6 @@ package com.example.gobang.server.handler.player;
 import com.alibaba.fastjson.JSONObject;
 import com.example.gobang.common.constant.RoomUserRoleConstant;
 import com.example.gobang.common.result.WSResult;
-import com.example.gobang.pojo.entity.GameMoves;
 import com.example.gobang.server.handler.WSMessageHandler;
 import com.example.gobang.server.handler.WebSocketMessageHandler;
 import com.example.gobang.server.service.manage.room.RedisRoomManager;
@@ -56,21 +55,7 @@ public class RestoreRequestHandler implements WebSocketMessageHandler {
         if (record == null) return;
         // 2. 查询所有落子
         List<Object> allMoves = redisRoomManager.getGameMoves(foundGameId.toString());
-        List<GameMoves> movesList = new ArrayList<>();
-        for (Object m : allMoves) {
-            if (m instanceof Map) {
-                Map mm = (Map) m;
-                GameMoves gm = GameMoves.builder()
-                        .gameId(foundGameId)
-                        .moveIndex(mm.get("move_index") == null ? 0 : Integer.parseInt(mm.get("move_index").toString()))
-                        .x(mm.get("x") == null ? 0 : Integer.parseInt(mm.get("x").toString()))
-                        .y(mm.get("y") == null ? 0 : Integer.parseInt(mm.get("y").toString()))
-                        .player(mm.get("player") == null ? 0 : Integer.parseInt(mm.get("player").toString()))
-                        .build();
-                movesList.add(gm);
-            }
-        }
-        int[][] board = buildBoardFromMoves(movesList);
+        int[][] board = buildBoardFromMoves(allMoves);
         // 3. 查询房间所有玩家和观战者
         Set<Object> playerIds = redisRoomManager.getRoomPlayerIds(roomId.toString());
         Set<Object> watcherIds = redisRoomManager.getRoomWatcherIds(roomId.toString());
@@ -104,8 +89,15 @@ public class RestoreRequestHandler implements WebSocketMessageHandler {
         }
         // 5. 计算当前回合
         int nextPlayer = 1;
-        if (movesList != null && !movesList.isEmpty()) {
-            nextPlayer = movesList.get(movesList.size() - 1).getPlayer() == 1 ? 2 : 1;
+        if (allMoves != null && !allMoves.isEmpty()) {
+            Object lastMove = allMoves.get(allMoves.size() - 1);
+            if (lastMove instanceof Map) {
+                Map lastMoveMap = (Map) lastMove;
+                Object player = lastMoveMap.get("player");
+                if (player != null) {
+                    nextPlayer = Integer.parseInt(player.toString()) == 1 ? 2 : 1;
+                }
+            }
         }
         // 6. 组装恢复数据
         JSONObject resp = new JSONObject();
@@ -121,10 +113,18 @@ public class RestoreRequestHandler implements WebSocketMessageHandler {
         }
     }
 
-    private int[][] buildBoardFromMoves(List<GameMoves> moves) {
+    private int[][] buildBoardFromMoves(List<Object> moves) {
         int[][] board = new int[15][15];
-        for (GameMoves move : moves) {
-            board[move.getX()][move.getY()] = move.getPlayer();
+        for (Object moveObj : moves) {
+            if (moveObj instanceof Map) {
+                Map move = (Map) moveObj;
+                Object x = move.get("x");
+                Object y = move.get("y");
+                Object player = move.get("player");
+                if (x != null && y != null && player != null) {
+                    board[Integer.parseInt(x.toString())][Integer.parseInt(y.toString())] = Integer.parseInt(player.toString());
+                }
+            }
         }
         return board;
     }

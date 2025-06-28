@@ -2,11 +2,7 @@ package com.example.gobang.server.service.room.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.example.gobang.common.result.Result;
-import com.example.gobang.pojo.entity.Room;
-import com.example.gobang.pojo.entity.RoomUser;
 import com.example.gobang.pojo.entity.User;
-import com.example.gobang.server.mapper.RoomMapper;
-import com.example.gobang.server.mapper.RoomUserMapper;
 import com.example.gobang.server.mapper.UserMapper;
 import com.example.gobang.server.service.room.RoomWatchService;
 import com.example.gobang.server.service.manage.room.RedisRoomManager;
@@ -28,10 +24,6 @@ import static com.example.gobang.common.constant.RoomUserRoleConstant.ROLE_WATCH
  */
 @Service
 public class RoomWatchServiceImpl implements RoomWatchService {
-    @Autowired
-    private RoomMapper roomMapper;
-    @Autowired
-    private RoomUserMapper roomUserMapper;
     @Autowired
     private RedisRoomManager redisRoomManager;
     @Autowired
