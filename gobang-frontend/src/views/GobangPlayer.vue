@@ -167,7 +167,7 @@ export default {
         const res = await leaveRoom(roomId.value)
         if (res.code === 0) {
           sessionStorage.removeItem('roomId')
-          router.push({ name: 'GameHall' })
+          router.replace({ name: 'GameHall' })
         } else {
           showToast(res.msg || '退出房间失败')
         }
@@ -352,7 +352,7 @@ export default {
               socket.value.close()
             }
             setTimeout(() => {
-              router.push({ name: 'GameHall' })
+              router.replace({ name: 'GameHall' })
             }, 1000)
             break
           case 'system_error':
@@ -370,7 +370,7 @@ export default {
               socket.value.close()
             }
             setTimeout(() => {
-              router.push({ name: 'GameHall' })
+              router.replace({ name: 'GameHall' })
             }, 1000)
             break
           case 'watch':

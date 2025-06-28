@@ -1,5 +1,6 @@
 package com.example.gobang.server.service.room.impl;
 
+import com.alibaba.fastjson.JSON;
 import com.example.gobang.common.result.Result;
 import com.example.gobang.server.service.room.RoomJoinService;
 import com.example.gobang.server.service.manage.room.RedisRoomManager;
@@ -8,10 +9,12 @@ import com.example.gobang.pojo.entity.User;
 import com.example.gobang.server.handler.player.PlayerSessionManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
