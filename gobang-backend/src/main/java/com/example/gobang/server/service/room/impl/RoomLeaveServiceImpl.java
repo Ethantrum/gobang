@@ -4,6 +4,8 @@ import com.example.gobang.common.result.Result;
 import com.example.gobang.pojo.dto.room.RoomLeaveDTO;
 import com.example.gobang.server.service.room.RoomLeaveService;
 import com.example.gobang.server.service.manage.room.RedisRoomManager;
+import com.example.gobang.server.handler.player.PlayerSessionManager;
+import com.example.gobang.server.handler.watch.WatchSessionManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -17,6 +19,12 @@ import java.util.*;
 public class RoomLeaveServiceImpl implements RoomLeaveService {
     @Autowired
     private RedisRoomManager redisRoomManager;
+    
+    @Autowired
+    private PlayerSessionManager playerSessionManager;
+    
+    @Autowired
+    private WatchSessionManager watchSessionManager;
 
     /**
      * 用户离开房间或观战。
@@ -49,6 +57,9 @@ public class RoomLeaveServiceImpl implements RoomLeaveService {
                     roomInfo.put("owner_id", newOwnerId);
                     redisRoomManager.createRoom(roomId, (Map) roomInfo); // 更新房主
                 } else {
+                    // 先发送kick消息给所有用户
+                    playerSessionManager.notifyAndCloseAllRoomSessions(roomLeaveDTO.getRoomId(), "房间已解散");
+                    watchSessionManager.notifyAndCloseAllRoomSessions(roomLeaveDTO.getRoomId(), "房间已解散");
                     redisRoomManager.deleteRoom(roomId);
                     return Result.success("退出房间成功");
                 }

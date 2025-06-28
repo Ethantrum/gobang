@@ -51,6 +51,9 @@ public class RedisRoomManager {
      * 只做数据清理，不做通知
      */
     public void deleteRoom(String roomId) {
+        // 先发送kick消息给所有玩家和观战者
+        sendKickMessageToAllUsers(roomId, "房间已解散");
+        
         // 删除房间属性
         redisTemplate.delete("room:" + roomId);
 
@@ -91,6 +94,16 @@ public class RedisRoomManager {
         
         // 删除重开缓存
         redisTemplate.delete("room:" + roomId + ":last_game");
+    }
+
+    /**
+     * 发送kick消息给房间内所有用户
+     * 这个方法需要在调用deleteRoom之前调用
+     */
+    private void sendKickMessageToAllUsers(String roomId, String reason) {
+        // 这里我们通过Redis存储kick消息，让session管理器来读取并发送
+        // 因为RedisRoomManager不应该直接依赖session管理器
+        redisTemplate.opsForValue().set("room:" + roomId + ":kick_reason", reason, 5); // 5秒过期
     }
 
     // ---------------- 房间成员相关（重构：玩家与观战者分离） ----------------

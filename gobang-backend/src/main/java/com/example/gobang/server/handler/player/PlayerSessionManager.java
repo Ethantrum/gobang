@@ -288,7 +288,13 @@ public class PlayerSessionManager {
     public synchronized void notifyAndCloseAllRoomSessions(Long roomId, String reason) {
         ConcurrentHashMap<Long, Set<WebSocketSession>> userSessions = roomUserSessionsMap.get(roomId);
         if (userSessions == null) return;
-        String msg = com.alibaba.fastjson.JSON.toJSONString(com.example.gobang.common.result.WSResult.error(reason));
+        
+        // 检查Redis中是否有kick消息
+        Object kickReason = redisRoomManager.getRedisTemplate().opsForValue().get("room:" + roomId + ":kick_reason");
+        String finalReason = kickReason != null ? kickReason.toString() : reason;
+        
+        // 发送kick消息而不是error消息
+        String msg = com.alibaba.fastjson.JSON.toJSONString(com.example.gobang.common.result.WSResult.<String>kick(finalReason));
         for (Set<WebSocketSession> sessionSet : userSessions.values()) {
             for (WebSocketSession session : sessionSet) {
                 try {

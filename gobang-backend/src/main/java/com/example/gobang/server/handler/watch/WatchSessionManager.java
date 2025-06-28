@@ -7,6 +7,7 @@ import org.springframework.web.socket.WebSocketSession;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.data.redis.core.RedisTemplate;
 
 /**
  * 观战者Session管理器：仅负责WebSocket会话注册、移除和消息推送。
@@ -16,6 +17,11 @@ import java.util.concurrent.ConcurrentHashMap;
 public class WatchSessionManager {
     // roomId -> (userId -> Set<session>)
     private final ConcurrentHashMap<Long, ConcurrentHashMap<Long, Set<WebSocketSession>>> roomWatchSessionsMap = new ConcurrentHashMap<>();
+    private final RedisTemplate<String, Object> redisTemplate;
+
+    public WatchSessionManager(RedisTemplate<String, Object> redisTemplate) {
+        this.redisTemplate = redisTemplate;
+    }
 
     /**
      * 注册观战者session（同一userId可多端观战）
@@ -98,7 +104,13 @@ public class WatchSessionManager {
     public synchronized void notifyAndCloseAllRoomSessions(Long roomId, String reason) {
         ConcurrentHashMap<Long, Set<WebSocketSession>> userSessions = roomWatchSessionsMap.get(roomId);
         if (userSessions == null) return;
-        String msg = com.alibaba.fastjson.JSON.toJSONString(com.example.gobang.common.result.WSResult.error(reason));
+        
+        // 检查Redis中是否有kick消息
+        Object kickReason = redisTemplate.opsForValue().get("room:" + roomId + ":kick_reason");
+        String finalReason = kickReason != null ? kickReason.toString() : reason;
+        
+        // 发送kick消息而不是error消息
+        String msg = com.alibaba.fastjson.JSON.toJSONString(com.example.gobang.common.result.WSResult.<String>kick(finalReason));
         for (Set<WebSocketSession> sessionSet : userSessions.values()) {
             for (WebSocketSession session : sessionSet) {
                 try {

@@ -341,11 +341,14 @@
               }
               break
             case 'kick':
-              showToast(msg.msg || '您的账号已在其他设备登录')
+              showToast(msg.data || '您已被踢出房间')
               if (socket.value) {
                 socket.value.close()
               }
-              return
+              setTimeout(() => {
+                router.push({ name: 'GameHall' })
+              }, 1000)
+              break
             case 'watch':
               isWatcher.value = true
               showToast(msg.msg || '您已切换为观战模式')

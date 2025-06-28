@@ -71,6 +71,13 @@ public class WSResult<T> implements Serializable {
         return wsResult;
     }
 
+    public static <T> WSResult<T> kick(T object){
+        WSResult<T> wsResult = new WSResult<T>();
+        wsResult.type = "kick";
+        wsResult.data = object;
+        return wsResult;
+    }
+
     public static WSResult<Void> restartRequest() {
         WSResult<Void> wsResult = new WSResult<>();
         wsResult.type = "restart_request";
