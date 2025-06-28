@@ -111,6 +111,9 @@ public class MoveHandler implements WebSocketMessageHandler {
                 roomInfo.put("status", com.example.gobang.common.constant.RoomStatusConstant.ROOM_STATUS_END);
                 redisRoomManager.createRoom(roomId.toString(), convertToStringObjectMap(roomInfo));
             }
+            
+            // TODO: 游戏结束归档 - 调用GameArchiveService.archiveGame(foundGameId)将游戏数据归档到MySQL
+            
             JSONObject resultData = new JSONObject();
             resultData.put("winner", userId);
             resultData.put("board", board);
