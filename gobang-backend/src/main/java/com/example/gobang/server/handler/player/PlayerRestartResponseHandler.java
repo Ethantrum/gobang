@@ -20,8 +20,8 @@ import java.util.stream.Collectors;
  * 只允许房间内有效玩家同意重开，自动分配新黑白、创建新对局、推送消息。
  */
 @Component
-public class RestartResponseHandler implements WebSocketMessageHandler {
-    private static final Logger log = LoggerFactory.getLogger(RestartResponseHandler.class);
+public class PlayerRestartResponseHandler implements WebSocketMessageHandler {
+    private static final Logger log = LoggerFactory.getLogger(PlayerRestartResponseHandler.class);
     @Autowired
     private PlayerSessionManager playerSessionManager;
     @Autowired

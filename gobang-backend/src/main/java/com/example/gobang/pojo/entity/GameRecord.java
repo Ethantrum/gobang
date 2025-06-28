@@ -12,16 +12,18 @@ import java.time.LocalDateTime;
 
 @Data
 @Builder
-@TableName("game_record")
+@TableName("game_records")
 public class GameRecord implements Serializable {
     @Serial
     private static final long serialVersionUID = 1L;
     @TableId(type = IdType.AUTO)
     private Long id;
     private Long roomId;
+    private Long gameId;
     private Long blackId;
     private Long whiteId;
     private LocalDateTime startTime;
     private LocalDateTime endTime;
     private Long winner;
+    private String moves;
 } 

@@ -19,7 +19,7 @@ import java.util.*;
  * 只允许当前对局玩家悔棋，撤销最后一步落子，自动同步棋盘。
  */
 @Component
-public class UndoHandler implements WebSocketMessageHandler {
+public class PlayerUndoHandler implements WebSocketMessageHandler {
     @Autowired
     private PlayerSessionManager playerSessionManager;
     @Autowired

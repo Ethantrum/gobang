@@ -9,14 +9,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketSession;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * 重开请求处理器：基于Redis分离结构实现。
  * 只允许房间内有效玩家发起重开请求，自动校验身份并推送。
  */
 @Component
-public class RestartRequestHandler implements WebSocketMessageHandler {
+public class PlayerRestartRequestHandler implements WebSocketMessageHandler {
     @Autowired
     private PlayerSessionManager playerSessionManager;
     @Autowired

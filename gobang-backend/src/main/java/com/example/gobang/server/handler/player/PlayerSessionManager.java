@@ -18,6 +18,7 @@ import com.example.gobang.server.handler.watch.WatchSessionManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.example.gobang.server.service.manage.room.RedisRoomManager;
+import com.example.gobang.server.service.GameArchiveService;
 
 /**
  * 玩家Session管理器：基于Redis分离结构实现房间、玩家、观战者、对局等管理。
@@ -30,10 +31,12 @@ public class PlayerSessionManager {
 
     private final WatchSessionManager watchSessionManager;
     private final RedisRoomManager redisRoomManager;
+    private final GameArchiveService gameArchiveService;
 
-    public PlayerSessionManager(WatchSessionManager watchSessionManager, RedisRoomManager redisRoomManager) {
+    public PlayerSessionManager(WatchSessionManager watchSessionManager, RedisRoomManager redisRoomManager, GameArchiveService gameArchiveService) {
         this.watchSessionManager = watchSessionManager;
         this.redisRoomManager = redisRoomManager;
+        this.gameArchiveService = gameArchiveService;
     }
 
     /**
@@ -151,6 +154,10 @@ public class PlayerSessionManager {
                 foundGame.put("winner", winnerId.toString());
                 foundGame.put("end_time", System.currentTimeMillis());
                 redisRoomManager.createGameRecord(foundGameId.toString(), (Map) foundGame);
+                
+                // TODO: 游戏结束归档 - 调用GameArchiveService.archiveGame(foundGameId)将游戏数据归档到MySQL
+                gameArchiveService.archiveGame(roomId, foundGameId);
+                
                 JSONObject resultData = new JSONObject();
                 resultData.put("winner", winnerId);
                 broadcastToRoom(roomId, WSResult.result(resultData));

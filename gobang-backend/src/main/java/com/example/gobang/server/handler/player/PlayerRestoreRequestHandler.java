@@ -1,7 +1,6 @@
 package com.example.gobang.server.handler.player;
 
 import com.alibaba.fastjson.JSONObject;
-import com.example.gobang.common.constant.RoomUserRoleConstant;
 import com.example.gobang.common.result.WSResult;
 import com.example.gobang.server.handler.WSMessageHandler;
 import com.example.gobang.server.handler.WebSocketMessageHandler;
@@ -12,13 +11,12 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * 恢复对局请求处理器：基于Redis分离结构实现。
  */
 @Component
-public class RestoreRequestHandler implements WebSocketMessageHandler {
+public class PlayerRestoreRequestHandler implements WebSocketMessageHandler {
     @Autowired
     private RedisRoomManager redisRoomManager;
 
