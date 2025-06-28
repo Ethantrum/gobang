@@ -134,9 +134,9 @@ export default {
           showCreateRoom.value = false
           fetchRooms()
           sessionStorage.setItem('roomId', res.data)
-          // 跳转到五子棋页面，传递新创建的房间ID
+          // 跳转到玩家对局页面，传递新创建的房间ID
           router.push({
-            name: 'Gobang',
+            name: 'GobangPlayer',
             params: { roomId: res.data }
           })
         } else {

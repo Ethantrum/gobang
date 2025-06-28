@@ -564,7 +564,7 @@ export default {
 
     // 新增：判断是否为高亮棋子
     const isWinningPiece = (x, y) => {
-      return winningLine.value.some(p => p.x === x && p.y === y);
+      return winningLine.value.some(p => p[0] === x && p[1] === y);
     };
 
     onMounted(async () => {
