@@ -52,14 +52,14 @@ public class MyWebSocketHandler extends TextWebSocketHandler {
                 }
             }
         } catch (Exception e) {
-            session.sendMessage(new TextMessage(JSON.toJSONString(WSResult.error("连接参数错误"))));
+            session.sendMessage(new TextMessage(JSON.toJSONString(WSResult.connectionError("连接参数错误"))));
             session.close(CloseStatus.BAD_DATA.withReason("Invalid parameters"));
             return;
         }
         // 校验房间是否存在
         String roomKey = "room:" + roomId;
         if (roomId == null || userId == null || !Boolean.TRUE.equals(redisTemplate.hasKey(roomKey))) {
-            session.sendMessage(new TextMessage(JSON.toJSONString(WSResult.error("非法连接：用户或房间不存在"))));
+            session.sendMessage(new TextMessage(JSON.toJSONString(WSResult.connectionError("非法连接：用户或房间不存在"))));
             session.close(CloseStatus.POLICY_VIOLATION.withReason("Unauthorized"));
             return;
         }
@@ -73,7 +73,7 @@ public class MyWebSocketHandler extends TextWebSocketHandler {
             Object roleObj = watcherInfo.get("role");
             role = roleObj == null ? ROLE_WATCH : Byte.parseByte(roleObj.toString());
         } else {
-            session.sendMessage(new TextMessage(JSON.toJSONString(WSResult.error("非法连接：用户未在房间"))));
+            session.sendMessage(new TextMessage(JSON.toJSONString(WSResult.connectionError("非法连接：用户未在房间"))));
             session.close(CloseStatus.POLICY_VIOLATION.withReason("Unauthorized"));
             return;
         }
@@ -96,12 +96,12 @@ public class MyWebSocketHandler extends TextWebSocketHandler {
         String type = msg.getString("type");
         Byte role = (Byte) session.getAttributes().get("role");
         if (isPlayerOp(type) && !isPlayerRole(role)) {
-            session.sendMessage(new TextMessage(com.alibaba.fastjson.JSON.toJSONString(WSResult.error("观战者无法执行玩家操作：" + type))));
+            session.sendMessage(new TextMessage(com.alibaba.fastjson.JSON.toJSONString(WSResult.permissionError("观战者无法执行玩家操作：" + type))));
             log.warn("[WS] 拒绝观战者操作 type={}, sessionId={}", type, session.getId());
             return;
         }
         if (isWatchOp(type) && !isWatchRole(role)) {
-            session.sendMessage(new TextMessage(com.alibaba.fastjson.JSON.toJSONString(WSResult.error("玩家无法执行观战操作：" + type))));
+            session.sendMessage(new TextMessage(com.alibaba.fastjson.JSON.toJSONString(WSResult.permissionError("玩家无法执行观战操作：" + type))));
             log.warn("[WS] 拒绝非观战者操作 type={}, sessionId={}", type, session.getId());
             return;
         }
@@ -109,7 +109,7 @@ public class MyWebSocketHandler extends TextWebSocketHandler {
             dispatcher.dispatch(session, message);
         } catch (Exception e) {
             log.error("[WS] 消息处理异常: {}", e.getMessage(), e);
-            WSResult<String> errorResult = WSResult.error("消息处理失败: " + e.getMessage());
+            WSResult<String> errorResult = WSResult.systemError("消息处理失败: " + e.getMessage());
             String errorJson = JSON.toJSONString(errorResult);
             session.sendMessage(new TextMessage(errorJson));
         }

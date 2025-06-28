@@ -217,6 +217,32 @@ export default {
             // 验证错误（如位置已有棋子、无效坐标等）
             showToast(msg.data || '验证失败')
             break
+          case 'permission_error':
+            // 权限错误（如身份验证失败、操作权限不足等）
+            showToast(msg.data || '权限不足')
+            break
+          case 'turn_error':
+            // 回合错误（如不是自己的回合）
+            showToast(msg.data || '不是您的回合')
+            break
+          case 'game_state_error':
+            // 游戏状态错误（如房间玩家不足、对局不存在等）
+            showToast(msg.data || '游戏状态错误')
+            break
+          case 'connection_error':
+            // 连接错误（如连接参数错误、非法连接等）
+            showToast(msg.data || '连接错误')
+            if (socket.value) {
+              socket.value.close()
+            }
+            setTimeout(() => {
+              router.push({ name: 'GameHall' })
+            }, 1000)
+            break
+          case 'system_error':
+            // 系统错误（如消息处理失败等）
+            showToast(msg.data || '系统错误')
+            break
           case 'kick':
             showToast(msg.data || '您已被踢出房间')
             if (socket.value) {

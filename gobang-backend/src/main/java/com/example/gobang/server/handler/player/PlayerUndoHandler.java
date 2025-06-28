@@ -82,7 +82,7 @@ public class PlayerUndoHandler implements WebSocketMessageHandler {
 
     private void sendError(WebSocketSession session, String msg) {
         try {
-            session.sendMessage(new TextMessage(JSON.toJSONString(WSResult.error(msg))));
+            session.sendMessage(new TextMessage(JSON.toJSONString(WSResult.gameStateError(msg))));
         } catch (IOException ignored) {}
     }
 

@@ -30,13 +30,13 @@ public class PlayerRestartRequestHandler implements WebSocketMessageHandler {
             return;
         }
         if (clientUserId == null || !userId.equals(clientUserId)) {
-            playerSessionManager.sendToUser(roomId, userId, WSResult.error("用户身份校验失败，禁止伪造userId发起重开"));
+            playerSessionManager.sendToUser(roomId, userId, WSResult.permissionError("用户身份校验失败，禁止伪造userId发起重开"));
             return;
         }
         // 只统计player角色
         Set<Object> userIds = redisRoomManager.getRoomPlayerIds(roomId.toString());
         if (userIds == null || userIds.size() < 2) {
-            playerSessionManager.sendToUser(roomId, userId, WSResult.error("房间内玩家不足，无法开始新对局。"));
+            playerSessionManager.sendToUser(roomId, userId, WSResult.gameStateError("房间内玩家不足，无法开始新对局。"));
             return;
         }
         // 只给对方player发送restart_request

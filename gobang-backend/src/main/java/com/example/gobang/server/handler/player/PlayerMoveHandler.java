@@ -87,7 +87,7 @@ public class PlayerMoveHandler implements WebSocketMessageHandler {
         } else if (!isBlackTurn && userId.equals(whiteId)) {
             player = 2;
         } else {
-            session.sendMessage(new TextMessage(JSON.toJSONString(WSResult.error("不是您的回合"))));
+            session.sendMessage(new TextMessage(JSON.toJSONString(WSResult.turnError("不是您的回合"))));
             return;
         }
         // 3. 落子

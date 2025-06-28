@@ -43,7 +43,7 @@ public class PlayerRestartResponseHandler implements WebSocketMessageHandler {
         playerSessionManager.sendToUser(roomId, fromUserId, WSResult.restartResponse(agree, fromUserId));
         if (!agree) {
             Long rejectUserId = (Long) session.getAttributes().get("userId");
-            playerSessionManager.sendToUser(roomId, rejectUserId, WSResult.error("房间无效：您拒绝再来一局，已被移出房间"));
+            playerSessionManager.sendToUser(roomId, rejectUserId, WSResult.kick("房间无效：您拒绝再来一局，已被移出房间"));
             playerSessionManager.removePlayerSession(session);
             return;
         }
@@ -90,7 +90,7 @@ public class PlayerRestartResponseHandler implements WebSocketMessageHandler {
                 }
                 
                 if (lastBlackId == null || lastWhiteId == null) {
-                    playerSessionManager.sendToUser(roomId, userId, WSResult.error("未找到上一局对局，无法重开"));
+                    playerSessionManager.sendToUser(roomId, userId, WSResult.gameStateError("未找到上一局对局，无法重开"));
                     return;
                 }
                 Long newBlackId = lastWhiteId;
@@ -98,7 +98,7 @@ public class PlayerRestartResponseHandler implements WebSocketMessageHandler {
                 // 查询房间所有玩家
                 Set<Object> playerIds = redisRoomManager.getRoomPlayerIds(roomId.toString());
                 if (playerIds == null || playerIds.size() < 2) {
-                    playerSessionManager.sendToUser(roomId, userId, WSResult.error("房间内玩家不足，无法开始新对局"));
+                    playerSessionManager.sendToUser(roomId, userId, WSResult.gameStateError("房间内玩家不足，无法开始新对局"));
                     return;
                 }
                 // 先全部重置为普通player
@@ -154,7 +154,7 @@ public class PlayerRestartResponseHandler implements WebSocketMessageHandler {
                 gameRestartCacheService.cacheLastGameInfo(roomId, newGameId, newBlackId, newWhiteId);
             } catch (Exception e) {
                 e.printStackTrace();
-                playerSessionManager.broadcastToRoom(roomId, WSResult.error("再来一局失败：" + e.getMessage()));
+                playerSessionManager.broadcastToRoom(roomId, WSResult.gameStateError("再来一局失败：" + e.getMessage()));
             }
         }
     }

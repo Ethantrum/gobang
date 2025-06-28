@@ -124,4 +124,32 @@ public class WSResult<T> implements Serializable {
         wsResult.data = msg;
         return wsResult;
     }
+
+    public static <T> WSResult<T> connectionError(T object){
+        WSResult<T> wsResult = new WSResult<T>();
+        wsResult.type = "connection_error";
+        wsResult.data = object;
+        return wsResult;
+    }
+
+    public static <T> WSResult<T> turnError(T object){
+        WSResult<T> wsResult = new WSResult<T>();
+        wsResult.type = "turn_error";
+        wsResult.data = object;
+        return wsResult;
+    }
+
+    public static <T> WSResult<T> gameStateError(T object){
+        WSResult<T> wsResult = new WSResult<T>();
+        wsResult.type = "game_state_error";
+        wsResult.data = object;
+        return wsResult;
+    }
+
+    public static <T> WSResult<T> systemError(T object){
+        WSResult<T> wsResult = new WSResult<T>();
+        wsResult.type = "system_error";
+        wsResult.data = object;
+        return wsResult;
+    }
 }
